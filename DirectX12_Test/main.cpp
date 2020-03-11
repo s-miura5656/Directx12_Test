@@ -297,7 +297,28 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		},
 	};
 
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC gpipeline = {};
 
+	gpipeline.pRootSignature = nullptr;
+	gpipeline.VS.pShaderBytecode = _vsBlob->GetBufferPointer();
+	gpipeline.VS.BytecodeLength = _vsBlob->GetBufferSize();
+	gpipeline.PS.pShaderBytecode = _psBlob->GetBufferPointer();
+	gpipeline.PS.BytecodeLength = _psBlob->GetBufferSize();
+	gpipeline.SampleMask = D3D12_DEFAULT_SAMPLE_MASK;
+	gpipeline.RasterizerState.MultisampleEnable = false;
+	gpipeline.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+	gpipeline.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
+	gpipeline.RasterizerState.DepthClipEnable = true;
+	gpipeline.BlendState.AlphaToCoverageEnable = false;
+	gpipeline.BlendState.IndependentBlendEnable = false;
+
+	D3D12_RENDER_TARGET_BLEND_DESC renderTargetBlendDesc = {};
+
+	renderTargetBlendDesc.BlendEnable = false;
+	renderTargetBlendDesc.LogicOpEnable = false;
+	renderTargetBlendDesc.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
+
+	gpipeline.BlendState.RenderTarget[0] = renderTargetBlendDesc;
 
 	MSG msg = {};
 
