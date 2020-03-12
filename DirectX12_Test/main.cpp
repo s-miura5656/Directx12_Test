@@ -414,25 +414,41 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	gpipeline.SampleDesc.Count = 1;
 	gpipeline.SampleDesc.Quality = 0;
 
+	D3D12_DESCRIPTOR_RANGE descTblRange = {};
+
+	descTblRange.NumDescriptors = 1;
+	descTblRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+	descTblRange.BaseShaderRegister = 0;
+	descTblRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+	D3D12_ROOT_PARAMETER rootparam = {};
+
+	rootparam.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	rootparam.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+	rootparam.DescriptorTable.pDescriptorRanges = &descTblRange;
+	rootparam.DescriptorTable.NumDescriptorRanges = 1;
+
 	D3D12_ROOT_SIGNATURE_DESC rootSignatureDesc = {};
 
 	rootSignatureDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
+	rootSignatureDesc.pParameters = &rootparam;
+	rootSignatureDesc.NumParameters = 1;
 
 	ID3DBlob* rootSigBlob = nullptr;
 
 	result = D3D12SerializeRootSignature(
-		&rootSignatureDesc,
-		D3D_ROOT_SIGNATURE_VERSION_1_0,
-		&rootSigBlob,
-		&errorBlob);
+			 &rootSignatureDesc,
+			 D3D_ROOT_SIGNATURE_VERSION_1_0,
+			 &rootSigBlob,
+			 &errorBlob);
 
 	ID3D12RootSignature* rootsignature = nullptr;
 
 	result = _dev->CreateRootSignature(
-		0,
-		rootSigBlob->GetBufferPointer(),
-		rootSigBlob->GetBufferSize(),
-		IID_PPV_ARGS(&rootsignature));
+				   0,
+				   rootSigBlob->GetBufferPointer(),
+				   rootSigBlob->GetBufferSize(),
+				   IID_PPV_ARGS(&rootsignature));
 
 	rootSigBlob->Release();
 
@@ -540,6 +556,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		  &srvDesc,
 		  texDescHeap->GetCPUDescriptorHandleForHeapStart()
 	);
+
+
 
 	MSG msg = {};
 
