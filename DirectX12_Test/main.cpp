@@ -215,24 +215,17 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 	ShowWindow(hwnd, SW_SHOW); // ウィンドウ表示
 
-	XMFLOAT3 vertices[] =
-	{
-		{-0.4f, -0.7f, 0.0f}, // 左下
-		{-0.4f,  0.7f, 0.0f}, // 左上
-		{ 0.4f, -0.7f, 0.0f}, // 右下
-		{ 0.4f,  0.7f, 0.0f}, // 右上
-	};
-
+	// 頂点ヒープ設定
 	D3D12_HEAP_PROPERTIES heapprop = {};
 
 	heapprop.Type = D3D12_HEAP_TYPE_UPLOAD;
 	heapprop.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
 	heapprop.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
 
+	// 頂点バッファリソース設定
 	D3D12_RESOURCE_DESC resdesc{};
 
 	resdesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-	resdesc.Width = sizeof(vertices);
 	resdesc.Height = 1;
 	resdesc.DepthOrArraySize = 1;
 	resdesc.MipLevels = 1;
@@ -241,15 +234,26 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	resdesc.Flags = D3D12_RESOURCE_FLAG_NONE;
 	resdesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 
+	/* 頂点バッファ -----------------------------------------------*/
+	XMFLOAT3 vertices[] =
+	{
+		{-0.4f, -0.7f, 0.0f}, // 左下
+		{-0.4f,  0.7f, 0.0f}, // 左上
+		{ 0.4f, -0.7f, 0.0f}, // 右下
+		{ 0.4f,  0.7f, 0.0f}, // 右上
+	};
+
 	ID3D12Resource* vertBuff = nullptr;
 
+	resdesc.Width = sizeof(vertices);
+
 	result = _dev->CreateCommittedResource(
-		&heapprop,
-		D3D12_HEAP_FLAG_NONE,
-		&resdesc,
-		D3D12_RESOURCE_STATE_GENERIC_READ,
-		nullptr,
-		IID_PPV_ARGS(&vertBuff)
+				   &heapprop,
+				   D3D12_HEAP_FLAG_NONE,
+				   &resdesc,
+				   D3D12_RESOURCE_STATE_GENERIC_READ,
+				   nullptr,
+				   IID_PPV_ARGS(&vertBuff)
 	);
 
 	XMFLOAT3* vertMap = nullptr;
@@ -260,9 +264,44 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	D3D12_VERTEX_BUFFER_VIEW vbView = {};
 
 	vbView.BufferLocation = vertBuff->GetGPUVirtualAddress();
-	vbView.SizeInBytes = sizeof(vertices);
-	vbView.StrideInBytes = sizeof(vertices[0]);
+	vbView.SizeInBytes    = sizeof(vertices);
+	vbView.StrideInBytes  = sizeof(vertices[0]);
+	/*------------------------------------------------------------*/
+	
 
+	/* インデックスバッファ --------------------------------------*/
+	unsigned short indices[] =
+	{
+		0,1,2,
+		2,1,3,
+	};
+
+	ID3D12Resource* idxBuff = nullptr;
+
+	resdesc.Width = sizeof(idxBuff);
+
+	result = _dev->CreateCommittedResource(
+				   &heapprop,
+				   D3D12_HEAP_FLAG_NONE,
+				   &resdesc,
+				   D3D12_RESOURCE_STATE_GENERIC_READ,
+				   nullptr,
+				   IID_PPV_ARGS(&idxBuff) 
+	);
+
+	unsigned short* mappedIndex = nullptr;
+	idxBuff->Map(0, nullptr, (void**)&mappedIndex);
+	std::copy(std::begin(indices), std::end(indices), mappedIndex);
+	idxBuff->Unmap(0, nullptr);
+
+	D3D12_INDEX_BUFFER_VIEW ibView = {};
+
+	ibView.BufferLocation = idxBuff->GetGPUVirtualAddress();
+	ibView.Format		  = DXGI_FORMAT_R16_UINT;
+	ibView.SizeInBytes    = sizeof(indices);
+	/*------------------------------------------------------------*/
+
+	/* シェーダ設定 ----------------------------------------------*/
 	ID3DBlob* _vsBlob = nullptr;
 	ID3DBlob* _psBlob = nullptr;
 
@@ -319,7 +358,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 			::OutputDebugStringA(errstr.c_str());
 		}
 	}
+	/*------------------------------------------------------------*/
 
+	/* 頂点レイアウト --------------------------------------------*/
 	D3D12_INPUT_ELEMENT_DESC inputLayout[] =
 	{
 		{"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0,
@@ -327,7 +368,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0
 		},
 	};
+	/*------------------------------------------------------------*/
 
+	/* グラフィックスパイプライン --------------------------------*/
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC gpipeline = {};
 
 	gpipeline.pRootSignature = nullptr;
@@ -386,7 +429,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	ID3D12PipelineState* _pipelinestate = nullptr;
 
 	result = _dev->CreateGraphicsPipelineState(&gpipeline, IID_PPV_ARGS(&_pipelinestate));
+	/*------------------------------------------------------------*/
 
+	/* ビューポート ----------------------------------------------*/
 	D3D12_VIEWPORT viewport = {};
 
 	viewport.Width = window_width;
@@ -395,13 +440,17 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	viewport.TopLeftY = 0;
 	viewport.MaxDepth = 1.0f;
 	viewport.MinDepth = 0.0f;
+	/*------------------------------------------------------------*/
 
+	/* シザー矩形 ------------------------------------------------*/
 	D3D12_RECT scissorrect = {};
 
 	scissorrect.top = 0;
 	scissorrect.left = 0;
 	scissorrect.right = scissorrect.left + window_width;
 	scissorrect.bottom = scissorrect.top + window_height;
+	/*------------------------------------------------------------*/
+
 
 	MSG msg = {};
 
@@ -449,12 +498,14 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		_cmdList->RSSetScissorRects(1, &scissorrect);
 		/*-------------------------------------------------------------------------------------*/
 		
-		_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-		_cmdList->IASetVertexBuffers(0, 1, &vbView);
-		_cmdList->DrawInstanced(4, 1, 0, 0);
+		_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		_cmdList->IASetVertexBuffers(0, 1, &vbView);   // 頂点バッファ
+		_cmdList->IASetIndexBuffer(&ibView);		   // インデックスバッファ
+//		_cmdList->DrawInstanced(4, 1, 0, 0);		   // 頂点バッファ使用時
+		_cmdList->DrawIndexedInstanced(6, 1, 0, 0, 0); // インデックスバッファ使用時
 
 		BarrierDesc.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
-		BarrierDesc.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
+		BarrierDesc.Transition.StateAfter  = D3D12_RESOURCE_STATE_PRESENT;
 		_cmdList->ResourceBarrier(1, &BarrierDesc);
 
 		// 命令のクローズ
