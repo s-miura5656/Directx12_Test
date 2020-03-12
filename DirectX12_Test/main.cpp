@@ -50,6 +50,12 @@ ID3D12GraphicsCommandList* _cmdList = nullptr;
 ID3D12CommandQueue* _cmdQueue = nullptr;
 IDXGISwapChain4* _swapchain = nullptr;
 
+struct Vertex
+{
+	XMFLOAT3 pos;
+	XMFLOAT2 uv;
+};
+
 void EnableDebugLayer() {
 	ID3D12Debug* debugLayer = nullptr;
 	if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugLayer)))) {
@@ -235,12 +241,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	resdesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 
 	/* 頂点バッファ -----------------------------------------------*/
-	XMFLOAT3 vertices[] =
+	Vertex vertices[] =
 	{
-		{-0.4f, -0.7f, 0.0f}, // 左下
-		{-0.4f,  0.7f, 0.0f}, // 左上
-		{ 0.4f, -0.7f, 0.0f}, // 右下
-		{ 0.4f,  0.7f, 0.0f}, // 右上
+		{{-0.4f, -0.7f, 0.0f},{0.0f, 1.0f}}, // 左下
+		{{-0.4f,  0.7f, 0.0f},{0.0f, 0.0f}}, // 左上
+		{{ 0.4f, -0.7f, 0.0f},{1.0f, 1.0f}}, // 右下
+		{{ 0.4f,  0.7f, 0.0f},{1.0f, 0.0f}}, // 右上
 	};
 
 	ID3D12Resource* vertBuff = nullptr;
@@ -256,7 +262,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 				   IID_PPV_ARGS(&vertBuff)
 	);
 
-	XMFLOAT3* vertMap = nullptr;
+	Vertex* vertMap = nullptr;
 	result = vertBuff->Map(0, nullptr, (void**)&vertMap);
 	std::copy(std::begin(vertices), std::end(vertices), vertMap);
 	vertBuff->Unmap(0, nullptr);
@@ -366,6 +372,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		{"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0,
 		D3D12_APPEND_ALIGNED_ELEMENT,
 		D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0
+		},
+		{"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,
+		 0, D3D12_APPEND_ALIGNED_ELEMENT,
+		 D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0
 		},
 	};
 	/*------------------------------------------------------------*/
