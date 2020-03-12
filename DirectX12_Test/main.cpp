@@ -9,8 +9,7 @@
 
 #ifdef _DEBUG
 #include<iostream>
-#endif
-
+#endif // _DEBUG
 
 #pragma comment(lib,"d3d12.lib")
 #pragma comment(lib,"dxgi.lib")
@@ -26,9 +25,9 @@ void DebugOutputFormatString(const char* format, ...) {
 #ifdef _DEBUG
 	va_list valist;
 	va_start(valist, format);
-	printf(format, valist);
+	vprintf(format, valist);
 	va_end(valist);
-#endif
+#endif // _DEBUG
 }
 
 //面倒だけど書かなあかんやつ
@@ -63,7 +62,7 @@ int main() {
 #else
 #include<Windows.h>
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
-#endif
+#endif // _DEBUG
 	DebugOutputFormatString("Show window test.");
 	HINSTANCE hInst = GetModuleHandle(nullptr);
 	//ウィンドウクラス生成＆登録
@@ -356,6 +355,22 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 	result = _dev->CreateGraphicsPipelineState(&gpipeline, IID_PPV_ARGS(&_pipelinestate));
 
+	D3D12_VIEWPORT viewport = {};
+
+	viewport.Width = window_width;
+	viewport.Height = window_height;
+	viewport.TopLeftX = 0;
+	viewport.TopLeftY = 0;
+	viewport.MaxDepth = 1.0f;
+	viewport.MinDepth = 0.0f;
+
+	D3D12_RECT scissorrect = {};
+
+	scissorrect.top = 0;
+	scissorrect.left = 0;
+	scissorrect.right = scissorrect.left + window_width;
+	scissorrect.bottom = scissorrect.top + window_height;
+
 	MSG msg = {};
 
 	while (true) {
@@ -392,13 +407,18 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		float clearColor[] = { 1.0f,1.0f,0.0f,1.0f };//黄色
 		_cmdList->ClearRenderTargetView(rtvH, clearColor, 0, nullptr);
 
+		_cmdList->SetPipelineState(_pipelinestate);
+		_cmdList->SetGraphicsRootSignature(rootsignature);
+		_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		_cmdList->IASetVertexBuffers(0, 1, &vbView);
+		_cmdList->DrawInstanced(3, 1, 0, 0);
+
 		BarrierDesc.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
 		BarrierDesc.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
 		_cmdList->ResourceBarrier(1, &BarrierDesc);
 
 		//命令のクローズ
 		_cmdList->Close();
-
 
 		//コマンドリストの実行
 		ID3D12CommandList* cmdlists[] = { _cmdList };
@@ -414,7 +434,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		}
 		_cmdAllocator->Reset();//キューをクリア
 		_cmdList->Reset(_cmdAllocator, nullptr);//再びコマンドリストをためる準備
-
 
 		//フリップ
 		_swapchain->Present(1, 0);
