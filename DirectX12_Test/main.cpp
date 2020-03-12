@@ -408,7 +408,14 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		_cmdList->ClearRenderTargetView(rtvH, clearColor, 0, nullptr);
 
 		_cmdList->SetPipelineState(_pipelinestate);
+
 		_cmdList->SetGraphicsRootSignature(rootsignature);
+
+		/*-–‚“±‘‚É‘‚¢‚Ä‚ ‚é‚¯‚ÇŽÀ‘••”•ª‚ð‘‚¢‚Ä‚È‚¢‚Æ‚±‚ë ( ‘‚©‚È‚¢‚Æ’¼ŠpŽOŠpŒ`‚É‚È‚ç‚È‚¢ )-*/
+		_cmdList->RSSetViewports(1, &viewport); 
+		_cmdList->RSSetScissorRects(1, &scissorrect);
+		/*-------------------------------------------------------------------------------------*/
+		
 		_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		_cmdList->IASetVertexBuffers(0, 1, &vbView);
 		_cmdList->DrawInstanced(3, 1, 0, 0);
