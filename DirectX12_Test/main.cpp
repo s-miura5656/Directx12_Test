@@ -50,12 +50,6 @@ ID3D12GraphicsCommandList* _cmdList = nullptr;
 ID3D12CommandQueue* _cmdQueue = nullptr;
 IDXGISwapChain4* _swapchain = nullptr;
 
-struct Vertex
-{
-	XMFLOAT3 pos;
-	XMFLOAT2 uv;
-};
-
 void EnableDebugLayer() {
 	ID3D12Debug* debugLayer = nullptr;
 	if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugLayer)))) {
@@ -109,33 +103,33 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	};
 
 	HRESULT result = S_OK;
-	
+
 	if (FAILED(CreateDXGIFactory2(DXGI_CREATE_FACTORY_DEBUG, IID_PPV_ARGS(&_dxgiFactory))))
 	{
 		if (FAILED(CreateDXGIFactory2(0, IID_PPV_ARGS(&_dxgiFactory)))) {
 			return -1;
 		}
 	}
-	
+
 	std::vector <IDXGIAdapter*> adapters;
-	
+
 	IDXGIAdapter* tmpAdapter = nullptr;
-	
+
 	for (int i = 0; _dxgiFactory->EnumAdapters(i, &tmpAdapter) != DXGI_ERROR_NOT_FOUND; ++i)
 	{
 		adapters.push_back(tmpAdapter);
 	}
-	
-	for (auto adpt : adapters) 
+
+	for (auto adpt : adapters)
 	{
 		DXGI_ADAPTER_DESC adesc = {};
-		
+
 		adpt->GetDesc(&adesc);
-		
+
 		std::wstring strDesc = adesc.Description;
-		
+
 		if (strDesc.find(L"NVIDIA") != std::string::npos) {
-			
+
 			tmpAdapter = adpt;
 			break;
 		}
@@ -143,11 +137,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 	// Direct3Dデバイスの初期化
 	D3D_FEATURE_LEVEL featureLevel;
-	
-	for (auto l : levels) 
+
+	for (auto l : levels)
 	{
 		if (D3D12CreateDevice(tmpAdapter, l, IID_PPV_ARGS(&_dev)) == S_OK) {
-			
+
 			featureLevel = l;
 			break;
 		}
@@ -155,9 +149,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 	result = _dev->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&_cmdAllocator));
 	result = _dev->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, _cmdAllocator, nullptr, IID_PPV_ARGS(&_cmdList));
-	
+
 	D3D12_COMMAND_QUEUE_DESC cmdQueueDesc = {};
-	
+
 	cmdQueueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE; // タイムアウトなし
 	cmdQueueDesc.NodeMask = 0;
 	cmdQueueDesc.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL; // プライオリティ特に指定なし
@@ -165,7 +159,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	result = _dev->CreateCommandQueue(&cmdQueueDesc, IID_PPV_ARGS(&_cmdQueue)); // コマンドキュー生成
 
 	DXGI_SWAP_CHAIN_DESC1 swapchainDesc = {};
-	
+
 	swapchainDesc.Width = window_width;
 	swapchainDesc.Height = window_height;
 	swapchainDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
@@ -181,45 +175,51 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 
 	result = _dxgiFactory->CreateSwapChainForHwnd(
-						   _cmdQueue,
-						   hwnd,
-						   &swapchainDesc,
-						   nullptr,
-						   nullptr,
-						   (IDXGISwapChain1**)&_swapchain);
+		_cmdQueue,
+		hwnd,
+		&swapchainDesc,
+		nullptr,
+		nullptr,
+		(IDXGISwapChain1**)&_swapchain);
 
 	D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {};
-	
+
 	heapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV; // レンダーターゲットビューなので当然RTV
 	heapDesc.NodeMask = 0;
 	heapDesc.NumDescriptors = 2; // 表裏の２つ
 	heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE; // 特に指定なし
-	
+
 	ID3D12DescriptorHeap* rtvHeaps = nullptr;
 	result = _dev->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&rtvHeaps));
-	
+
 	DXGI_SWAP_CHAIN_DESC swcDesc = {};
 	result = _swapchain->GetDesc(&swcDesc);
-	
+
 	std::vector<ID3D12Resource*> _backBuffers(swcDesc.BufferCount);
-	
+
 	D3D12_CPU_DESCRIPTOR_HANDLE handle = rtvHeaps->GetCPUDescriptorHandleForHeapStart();
-	
-	for (int i = 0; i < swcDesc.BufferCount; ++i) 
+
+	for (int i = 0; i < swcDesc.BufferCount; ++i)
 	{
 		result = _swapchain->GetBuffer(i, IID_PPV_ARGS(&_backBuffers[i]));
-		
+
 		_dev->CreateRenderTargetView(_backBuffers[i], nullptr, handle);
-		
+
 		handle.ptr += _dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 	}
-	
+
 	ID3D12Fence* _fence = nullptr;
-	
+
 	UINT64 _fenceVal = 0;
 	result = _dev->CreateFence(_fenceVal, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&_fence));
 
 	ShowWindow(hwnd, SW_SHOW); // ウィンドウ表示
+
+	struct Vertex
+	{
+		XMFLOAT3 pos;
+		XMFLOAT2 uv;
+	};
 
 	// 頂点ヒープ設定
 	D3D12_HEAP_PROPERTIES heapprop = {};
@@ -254,12 +254,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	resdesc.Width = sizeof(vertices);
 
 	result = _dev->CreateCommittedResource(
-				   &heapprop,
-				   D3D12_HEAP_FLAG_NONE,
-				   &resdesc,
-				   D3D12_RESOURCE_STATE_GENERIC_READ,
-				   nullptr,
-				   IID_PPV_ARGS(&vertBuff)
+		&heapprop,
+		D3D12_HEAP_FLAG_NONE,
+		&resdesc,
+		D3D12_RESOURCE_STATE_GENERIC_READ,
+		nullptr,
+		IID_PPV_ARGS(&vertBuff)
 	);
 
 	Vertex* vertMap = nullptr;
@@ -270,10 +270,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	D3D12_VERTEX_BUFFER_VIEW vbView = {};
 
 	vbView.BufferLocation = vertBuff->GetGPUVirtualAddress();
-	vbView.SizeInBytes    = sizeof(vertices);
-	vbView.StrideInBytes  = sizeof(vertices[0]);
+	vbView.SizeInBytes = sizeof(vertices);
+	vbView.StrideInBytes = sizeof(vertices[0]);
 	/*------------------------------------------------------------*/
-	
+
 
 	/* インデックスバッファ --------------------------------------*/
 	unsigned short indices[] =
@@ -287,12 +287,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	resdesc.Width = sizeof(idxBuff);
 
 	result = _dev->CreateCommittedResource(
-				   &heapprop,
-				   D3D12_HEAP_FLAG_NONE,
-				   &resdesc,
-				   D3D12_RESOURCE_STATE_GENERIC_READ,
-				   nullptr,
-				   IID_PPV_ARGS(&idxBuff) 
+		&heapprop,
+		D3D12_HEAP_FLAG_NONE,
+		&resdesc,
+		D3D12_RESOURCE_STATE_GENERIC_READ,
+		nullptr,
+		IID_PPV_ARGS(&idxBuff)
 	);
 
 	unsigned short* mappedIndex = nullptr;
@@ -303,9 +303,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	D3D12_INDEX_BUFFER_VIEW ibView = {};
 
 	ibView.BufferLocation = idxBuff->GetGPUVirtualAddress();
-	ibView.Format		  = DXGI_FORMAT_R16_UINT;
-	ibView.SizeInBytes    = sizeof(indices);
+	ibView.Format = DXGI_FORMAT_R16_UINT;
+	ibView.SizeInBytes = sizeof(indices);
 	/*------------------------------------------------------------*/
+
 
 	/* シェーダ設定 ----------------------------------------------*/
 	ID3DBlob* _vsBlob = nullptr;
@@ -314,11 +315,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	ID3DBlob* errorBlob = nullptr;
 
 	result = D3DCompileFromFile(L"BasicVertexShader.hlsl",
-								nullptr,
-								D3D_COMPILE_STANDARD_FILE_INCLUDE,
-								"BasicVS", "vs_5_0",
-								D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION,
-								0, &_vsBlob, &errorBlob);
+		nullptr,
+		D3D_COMPILE_STANDARD_FILE_INCLUDE,
+		"BasicVS", "vs_5_0",
+		D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION,
+		0, &_vsBlob, &errorBlob);
 
 	if (FAILED(result))
 	{
@@ -332,19 +333,19 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 			std::string errstr;
 			errstr.resize(errorBlob->GetBufferSize());
 			std::copy_n((char*)errorBlob->GetBufferPointer(),
-							   errorBlob->GetBufferSize(),
-							   errstr.begin());
+				errorBlob->GetBufferSize(),
+				errstr.begin());
 			errstr += "\n";
 			::OutputDebugStringA(errstr.c_str());
 		}
 	}
 
 	result = D3DCompileFromFile(L"BasicPixelShader.hlsl",
-								nullptr,
-								D3D_COMPILE_STANDARD_FILE_INCLUDE,
-								"BasicPS", "ps_5_0",
-								D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION,
-								0, &_psBlob, &errorBlob);
+		nullptr,
+		D3D_COMPILE_STANDARD_FILE_INCLUDE,
+		"BasicPS", "ps_5_0",
+		D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION,
+		0, &_psBlob, &errorBlob);
 
 	if (FAILED(result))
 	{
@@ -358,13 +359,14 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 			std::string errstr;
 			errstr.resize(errorBlob->GetBufferSize());
 			std::copy_n((char*)errorBlob->GetBufferPointer(),
-							   errorBlob->GetBufferSize(),
-							   errstr.begin());
+				errorBlob->GetBufferSize(),
+				errstr.begin());
 			errstr += "\n";
 			::OutputDebugStringA(errstr.c_str());
 		}
 	}
 	/*------------------------------------------------------------*/
+
 
 	/* 頂点レイアウト --------------------------------------------*/
 	D3D12_INPUT_ELEMENT_DESC inputLayout[] =
@@ -419,18 +421,18 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	ID3DBlob* rootSigBlob = nullptr;
 
 	result = D3D12SerializeRootSignature(
-			 &rootSignatureDesc,
-			 D3D_ROOT_SIGNATURE_VERSION_1_0,
-			 &rootSigBlob,
-			 &errorBlob);
+		&rootSignatureDesc,
+		D3D_ROOT_SIGNATURE_VERSION_1_0,
+		&rootSigBlob,
+		&errorBlob);
 
 	ID3D12RootSignature* rootsignature = nullptr;
 
 	result = _dev->CreateRootSignature(
-				   0,
-				   rootSigBlob->GetBufferPointer(),
-				   rootSigBlob->GetBufferSize(),
-				   IID_PPV_ARGS(&rootsignature));
+		0,
+		rootSigBlob->GetBufferPointer(),
+		rootSigBlob->GetBufferSize(),
+		IID_PPV_ARGS(&rootsignature));
 
 	rootSigBlob->Release();
 
@@ -461,6 +463,70 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	scissorrect.bottom = scissorrect.top + window_height;
 	/*------------------------------------------------------------*/
 
+	struct TexRGBA
+	{
+		unsigned char R, G, B, A;
+	};
+
+	std::vector <TexRGBA> texturedata(256 * 256);
+
+	for (auto rgba : texturedata)
+	{
+		rgba.R = rand() % 256;
+		rgba.G = rand() % 256;
+		rgba.B = rand() % 256;
+		rgba.A = 255;
+	}
+
+	// WriteToSubresourceで転送する用のヒープ設定
+	D3D12_HEAP_PROPERTIES texHeapProp = {};
+	
+	texHeapProp.Type = D3D12_HEAP_TYPE_CUSTOM;
+	texHeapProp.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;
+	texHeapProp.MemoryPoolPreference = D3D12_MEMORY_POOL_L0;
+	texHeapProp.CreationNodeMask = 0;
+	texHeapProp.VisibleNodeMask = 0;
+
+	D3D12_RESOURCE_DESC texResDesc = {};
+	
+	texResDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	texResDesc.Width = 256;
+	texResDesc.Height = 256;
+	texResDesc.DepthOrArraySize = 1;
+	texResDesc.SampleDesc.Count = 1;
+	texResDesc.SampleDesc.Quality = 0;
+	texResDesc.MipLevels = 1;
+	texResDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	texResDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+	texResDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
+
+	ID3D12Resource* texBuff = nullptr;
+
+	result = _dev->CreateCommittedResource(
+				   &texHeapProp,
+				   D3D12_HEAP_FLAG_NONE,
+				   &texResDesc,
+				   D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+				   nullptr,
+				   IID_PPV_ARGS(&texBuff));
+
+	result = texBuff->WriteToSubresource(
+					  0,
+					  nullptr,
+					  texturedata.data(),
+					  sizeof(TexRGBA) * 256,
+					  sizeof(TexRGBA) * texturedata.size()
+	);
+
+	ID3D12DescriptorHeap* texDescHeap = nullptr;
+	D3D12_DESCRIPTOR_HEAP_DESC descHeapDesc = {};
+
+	descHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	descHeapDesc.NodeMask = 0;
+	descHeapDesc.NumDescriptors = 1;
+	descHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+
+	result = _dev->CreateDescriptorHeap(&descHeapDesc, IID_PPV_ARGS(&texDescHeap));
 
 	MSG msg = {};
 
