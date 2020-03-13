@@ -500,7 +500,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 	std::vector <TexRGBA> texturedata(256 * 256);
 
-	for (auto rgba : texturedata)
+	for (auto& rgba : texturedata)
 	{
 		rgba.R = rand() % 256;
 		rgba.G = rand() % 256;
