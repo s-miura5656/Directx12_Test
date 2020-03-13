@@ -177,12 +177,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 
 	result = _dxgiFactory->CreateSwapChainForHwnd(
-		_cmdQueue,
-		hwnd,
-		&swapchainDesc,
-		nullptr,
-		nullptr,
-		(IDXGISwapChain1**)&_swapchain);
+						   _cmdQueue,
+						   hwnd,
+						   &swapchainDesc,
+						   nullptr,
+						   nullptr,
+						   (IDXGISwapChain1**)&_swapchain);
 
 	D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {};
 
@@ -201,11 +201,16 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 	D3D12_CPU_DESCRIPTOR_HANDLE handle = rtvHeaps->GetCPUDescriptorHandleForHeapStart();
 
+	D3D12_RENDER_TARGET_VIEW_DESC rtvDesc = {};
+
+	rtvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+	rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
+
 	for (int i = 0; i < swcDesc.BufferCount; ++i)
 	{
 		result = _swapchain->GetBuffer(i, IID_PPV_ARGS(&_backBuffers[i]));
 
-		_dev->CreateRenderTargetView(_backBuffers[i], nullptr, handle);
+		_dev->CreateRenderTargetView(_backBuffers[i], &rtvDesc, handle);
 
 		handle.ptr += _dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 	}
@@ -268,12 +273,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	resdesc.Width = sizeof(vertices);
 
 	result = _dev->CreateCommittedResource(
-		&heapprop,
-		D3D12_HEAP_FLAG_NONE,
-		&resdesc,
-		D3D12_RESOURCE_STATE_GENERIC_READ,
-		nullptr,
-		IID_PPV_ARGS(&vertBuff)
+				   &heapprop,
+				   D3D12_HEAP_FLAG_NONE,
+				   &resdesc,
+				   D3D12_RESOURCE_STATE_GENERIC_READ,
+				   nullptr,
+				   IID_PPV_ARGS(&vertBuff)
 	);
 
 	Vertex* vertMap = nullptr;
@@ -301,12 +306,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	resdesc.Width = sizeof(idxBuff);
 
 	result = _dev->CreateCommittedResource(
-		&heapprop,
-		D3D12_HEAP_FLAG_NONE,
-		&resdesc,
-		D3D12_RESOURCE_STATE_GENERIC_READ,
-		nullptr,
-		IID_PPV_ARGS(&idxBuff)
+				   &heapprop,
+				   D3D12_HEAP_FLAG_NONE,
+				   &resdesc,
+				   D3D12_RESOURCE_STATE_GENERIC_READ,
+				   nullptr,
+				   IID_PPV_ARGS(&idxBuff)
 	);
 
 	unsigned short* mappedIndex = nullptr;
@@ -329,11 +334,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	ID3DBlob* errorBlob = nullptr;
 
 	result = D3DCompileFromFile(L"BasicVertexShader.hlsl",
-		nullptr,
-		D3D_COMPILE_STANDARD_FILE_INCLUDE,
-		"BasicVS", "vs_5_0",
-		D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION,
-		0, &_vsBlob, &errorBlob);
+								nullptr,
+								D3D_COMPILE_STANDARD_FILE_INCLUDE,
+								"BasicVS", "vs_5_0",
+								D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION,
+								0, &_vsBlob, &errorBlob);
 
 	if (FAILED(result))
 	{
@@ -355,11 +360,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	}
 
 	result = D3DCompileFromFile(L"BasicPixelShader.hlsl",
-		nullptr,
-		D3D_COMPILE_STANDARD_FILE_INCLUDE,
-		"BasicPS", "ps_5_0",
-		D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION,
-		0, &_psBlob, &errorBlob);
+								nullptr,
+								D3D_COMPILE_STANDARD_FILE_INCLUDE,
+								"BasicPS", "ps_5_0",
+								D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION,
+								0, &_psBlob, &errorBlob);
 
 	if (FAILED(result))
 	{
@@ -465,18 +470,18 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	ID3DBlob* rootSigBlob = nullptr;
 
 	result = D3D12SerializeRootSignature(
-		&rootSignatureDesc,
-		D3D_ROOT_SIGNATURE_VERSION_1_0,
-		&rootSigBlob,
-		&errorBlob);
+			 &rootSignatureDesc,
+			 D3D_ROOT_SIGNATURE_VERSION_1_0,
+			 &rootSigBlob,
+			 &errorBlob);
 
 	ID3D12RootSignature* rootsignature = nullptr;
 
 	result = _dev->CreateRootSignature(
-		0,
-		rootSigBlob->GetBufferPointer(),
-		rootSigBlob->GetBufferSize(),
-		IID_PPV_ARGS(&rootsignature));
+				   0,
+				   rootSigBlob->GetBufferPointer(),
+				   rootSigBlob->GetBufferSize(),
+				   IID_PPV_ARGS(&rootsignature));
 
 	rootSigBlob->Release();
 
@@ -547,19 +552,19 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	ID3D12Resource* texBuff = nullptr;
 
 	result = _dev->CreateCommittedResource(
-		&texHeapProp,
-		D3D12_HEAP_FLAG_NONE,
-		&texResDesc,
-		D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
-		nullptr,
-		IID_PPV_ARGS(&texBuff));
+				   &texHeapProp,
+				   D3D12_HEAP_FLAG_NONE,
+				   &texResDesc,
+				   D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+				   nullptr,
+				   IID_PPV_ARGS(&texBuff));
 
 	result = texBuff->WriteToSubresource(
-		0,
-		nullptr,
-		img->pixels,
-		img->rowPitch,
-		img->slicePitch
+					  0,
+					  nullptr,
+					  img->pixels,
+					  img->rowPitch,
+					  img->slicePitch
 	);
 
 	ID3D12DescriptorHeap* texDescHeap = nullptr;
@@ -580,9 +585,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	srvDesc.Texture2D.MipLevels = 1;
 
 	_dev->CreateShaderResourceView(
-		texBuff,
-		&srvDesc,
-		texDescHeap->GetCPUDescriptorHandleForHeapStart()
+		  texBuff,
+		  &srvDesc,
+		  texDescHeap->GetCPUDescriptorHandleForHeapStart()
 	);
 
 
