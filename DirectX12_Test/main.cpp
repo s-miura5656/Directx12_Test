@@ -605,6 +605,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		_cmdList->SetGraphicsRootDescriptorTable(
 			0, basicDescHeap->GetGPUDescriptorHandleForHeapStart());
 
+		auto heapHandle = basicDescHeap->GetGPUDescriptorHandleForHeapStart();
+		heapHandle.ptr += _dev->GetDescriptorHandleIncrementSize(
+			                    D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+		_cmdList->SetGraphicsRootDescriptorTable(1, heapHandle);
+
 		//		_cmdList->DrawInstanced(4, 1, 0, 0);		   // 頂点バッファ使用時
 		_cmdList->DrawIndexedInstanced(6, 1, 0, 0, 0); // インデックスバッファ使用時
 
