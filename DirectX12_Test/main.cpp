@@ -490,29 +490,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 					  img->slicePitch
 	);
 
-	ID3D12DescriptorHeap* texDescHeap = nullptr;
-	D3D12_DESCRIPTOR_HEAP_DESC descHeapDesc = {};
-
-	descHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-	descHeapDesc.NodeMask = 0;
-	descHeapDesc.NumDescriptors = 1;
-	descHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-
-	result = _dev->CreateDescriptorHeap(&descHeapDesc, IID_PPV_ARGS(&texDescHeap));
-
-	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-
-	srvDesc.Format = metadata.format;
-	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-	srvDesc.Texture2D.MipLevels = 1;
-
-	_dev->CreateShaderResourceView(
-		  texBuff,
-		  &srvDesc,
-		  texDescHeap->GetCPUDescriptorHandleForHeapStart()
-	);
-
 	XMMATRIX matrix = XMMatrixIdentity();
 
 	ID3D12Resource* constBuff = nullptr;
@@ -530,6 +507,42 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	result = constBuff->Map(0, nullptr, (void**)&mapMatrix);
 
 	*mapMatrix = matrix;
+
+	ID3D12DescriptorHeap* basicDescHeap = nullptr;
+	D3D12_DESCRIPTOR_HEAP_DESC descHeapDesc = {};
+
+	descHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	descHeapDesc.NodeMask = 0;
+	descHeapDesc.NumDescriptors = 2;
+	descHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+
+	result = _dev->CreateDescriptorHeap(&descHeapDesc, IID_PPV_ARGS(&basicDescHeap));
+
+	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+
+	srvDesc.Format = metadata.format;
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Texture2D.MipLevels = 1;
+
+	auto basicHeapHandle = basicDescHeap->GetCPUDescriptorHandleForHeapStart();
+
+	_dev->CreateShaderResourceView(
+		  texBuff,
+		  &srvDesc,
+		  basicDescHeap->GetCPUDescriptorHandleForHeapStart()
+	);
+
+	basicHeapHandle.ptr += _dev->GetDescriptorHandleIncrementSize(
+								 D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+	D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc = {};
+
+	cbvDesc.BufferLocation = constBuff->GetGPUVirtualAddress();
+	cbvDesc.SizeInBytes = constBuff->GetDesc().Width;
+
+	_dev->CreateConstantBufferView(&cbvDesc, basicHeapHandle);
+	
 
 	MSG msg = {};
 
@@ -577,9 +590,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		_cmdList->IASetIndexBuffer(&ibView);		   // インデックスバッファ
 
 		_cmdList->SetGraphicsRootSignature(rootsignature);
-		_cmdList->SetDescriptorHeaps(1, &texDescHeap);
+		_cmdList->SetDescriptorHeaps(1, &basicDescHeap);
 		_cmdList->SetGraphicsRootDescriptorTable(
-			0, texDescHeap->GetGPUDescriptorHandleForHeapStart());
+			0, basicDescHeap->GetGPUDescriptorHandleForHeapStart());
 
 		//		_cmdList->DrawInstanced(4, 1, 0, 0);		   // 頂点バッファ使用時
 		_cmdList->DrawIndexedInstanced(6, 1, 0, 0, 0); // インデックスバッファ使用時
