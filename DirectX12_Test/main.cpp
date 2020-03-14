@@ -411,14 +411,23 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	gpipeline.SampleDesc.Count = 1;
 	gpipeline.SampleDesc.Quality = 0;
 
-	D3D12_ROOT_PARAMETER rootparam = {};
+	D3D12_ROOT_PARAMETER rootparam[2] = {};
 
-	rootparam.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-	rootparam.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-	rootparam.DescriptorTable.pDescriptorRanges = &CD3DX12_DESCRIPTOR_RANGE(
+	// テクスチャ用レジスター 0 番
+	rootparam[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	rootparam[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+	rootparam[0].DescriptorTable.pDescriptorRanges = &CD3DX12_DESCRIPTOR_RANGE(
 												   D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
 		                                           1, 0);
-	rootparam.DescriptorTable.NumDescriptorRanges = 1;
+	rootparam[0].DescriptorTable.NumDescriptorRanges = 1;
+
+	// 定数用レジスター 0 番
+	rootparam[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	rootparam[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
+	rootparam[1].DescriptorTable.pDescriptorRanges = &CD3DX12_DESCRIPTOR_RANGE(
+												   D3D12_DESCRIPTOR_RANGE_TYPE_CBV,
+												   1, 0);
+	rootparam[1].DescriptorTable.NumDescriptorRanges = 1;
 
 	D3D12_STATIC_SAMPLER_DESC samplerDesc = {};
 
@@ -435,7 +444,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	ID3DBlob* rootSigBlob = nullptr;
 
 	result = D3D12SerializeRootSignature(
-			 &CD3DX12_ROOT_SIGNATURE_DESC(1, &rootparam, 1, &samplerDesc, 
+			 &CD3DX12_ROOT_SIGNATURE_DESC(2, &rootparam[0], 1, &samplerDesc, 
 			  D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT),
 			 D3D_ROOT_SIGNATURE_VERSION_1_0,
 			 &rootSigBlob, &errorBlob);
@@ -542,6 +551,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	cbvDesc.SizeInBytes = constBuff->GetDesc().Width;
 
 	_dev->CreateConstantBufferView(&cbvDesc, basicHeapHandle);
+
+
 	
 
 	MSG msg = {};
