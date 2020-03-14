@@ -229,25 +229,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		XMFLOAT2 uv;
 	};
 
-	// 頂点ヒープ設定
-//	D3D12_HEAP_PROPERTIES heapprop = {};
-
-//	heapprop.Type = D3D12_HEAP_TYPE_UPLOAD;
-//	heapprop.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
-//	heapprop.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
-
-	// 頂点バッファリソース設定
-//	D3D12_RESOURCE_DESC resdesc{};
-
-//	resdesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-//	resdesc.Height = 1;
-//	resdesc.DepthOrArraySize = 1;
-//	resdesc.MipLevels = 1;
-//	resdesc.Format = DXGI_FORMAT_UNKNOWN;
-//	resdesc.SampleDesc.Count = 1;
-//	resdesc.Flags = D3D12_RESOURCE_FLAG_NONE;
-//	resdesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-
 	// WIC テクスチャのロード
 	TexMetadata metadata = {};
 	ScratchImage scratchImg = {};
@@ -270,8 +251,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	};
 
 	ID3D12Resource* vertBuff = nullptr;
-
-//	resdesc.Width = sizeof(vertices);
 
 	result = _dev->CreateCommittedResource(
 				   &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
@@ -303,8 +282,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	};
 
 	ID3D12Resource* idxBuff = nullptr;
-
-//	resdesc.Width = sizeof(idxBuff);
 
 	result = _dev->CreateCommittedResource(
 				   &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
@@ -434,18 +411,13 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	gpipeline.SampleDesc.Count = 1;
 	gpipeline.SampleDesc.Quality = 0;
 
-	D3D12_DESCRIPTOR_RANGE descTblRange = {};
-
-	descTblRange.NumDescriptors = 1;
-	descTblRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-	descTblRange.BaseShaderRegister = 0;
-	descTblRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
-
 	D3D12_ROOT_PARAMETER rootparam = {};
 
 	rootparam.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
 	rootparam.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-	rootparam.DescriptorTable.pDescriptorRanges = &descTblRange;
+	rootparam.DescriptorTable.pDescriptorRanges = &CD3DX12_DESCRIPTOR_RANGE(
+												   D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
+		                                           1, 0);
 	rootparam.DescriptorTable.NumDescriptorRanges = 1;
 
 	D3D12_STATIC_SAMPLER_DESC samplerDesc = {};
@@ -459,14 +431,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	samplerDesc.MinLOD = 0.0f;
 	samplerDesc.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 	samplerDesc.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
-
-//	D3D12_ROOT_SIGNATURE_DESC rootSignatureDesc = {};
-
-//	rootSignatureDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
-//	rootSignatureDesc.pParameters = &rootparam;
-//	rootSignatureDesc.NumParameters = 1;
-//	rootSignatureDesc.pStaticSamplers = &samplerDesc;
-//	rootSignatureDesc.NumStaticSamplers = 1;
 
 	ID3DBlob* rootSigBlob = nullptr;
 
@@ -493,26 +457,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	result = _dev->CreateGraphicsPipelineState(&gpipeline, IID_PPV_ARGS(&_pipelinestate));
 	/*------------------------------------------------------------*/
 
-	/* ビューポート ----------------------------------------------*/
-//	D3D12_VIEWPORT viewport = {};
-
-//	viewport.Width = window_width;
-//	viewport.Height = window_height;
-//	viewport.TopLeftX = 0;
-//	viewport.TopLeftY = 0;
-//	viewport.MaxDepth = 1.0f;
-//	viewport.MinDepth = 0.0f;
-	/*------------------------------------------------------------*/
-
-	/* シザー矩形 ------------------------------------------------*/
-//	D3D12_RECT scissorrect = {};
-
-//	scissorrect.top = 0;
-//	scissorrect.left = 0;
-//	scissorrect.right = scissorrect.left + window_width;
-//	scissorrect.bottom = scissorrect.top + window_height;
-	/*------------------------------------------------------------*/
-
 	struct TexRGBA
 	{
 		unsigned char R, G, B, A;
@@ -527,28 +471,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		rgba.B = rand() % 256;
 		rgba.A = 255;
 	}
-
-	// WriteToSubresourceで転送する用のヒープ設定
-//	D3D12_HEAP_PROPERTIES texHeapProp = {};
-
-//	texHeapProp.Type = D3D12_HEAP_TYPE_CUSTOM;
-//	texHeapProp.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;
-//	texHeapProp.MemoryPoolPreference = D3D12_MEMORY_POOL_L0;
-//	texHeapProp.CreationNodeMask = 0;
-//	texHeapProp.VisibleNodeMask = 0;
-
-//	D3D12_RESOURCE_DESC texResDesc = {};
-
-//	texResDesc.Format = metadata.format;
-//	texResDesc.Width = metadata.width;
-//	texResDesc.Height = metadata.height;
-//	texResDesc.DepthOrArraySize = metadata.arraySize;
-//	texResDesc.SampleDesc.Count = 1;
-//	texResDesc.SampleDesc.Quality = 0;
-//	texResDesc.MipLevels = metadata.mipLevels;
-//	texResDesc.Dimension = static_cast <D3D12_RESOURCE_DIMENSION>(metadata.dimension);
-//	texResDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
-//	texResDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
 
 	ID3D12Resource* texBuff = nullptr;
 
@@ -612,13 +534,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		// バックバッファのインデックスを取得
 		auto bbIdx = _swapchain->GetCurrentBackBufferIndex();
 
-//		D3D12_RESOURCE_BARRIER BarrierDesc = {};
-//		BarrierDesc.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-//		BarrierDesc.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-//		BarrierDesc.Transition.pResource = _backBuffers[bbIdx];
-//		BarrierDesc.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-//		BarrierDesc.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
-//		BarrierDesc.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
 		_cmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(_backBuffers[bbIdx], 
 									  D3D12_RESOURCE_STATE_PRESENT, 
 									  D3D12_RESOURCE_STATE_RENDER_TARGET));
@@ -652,9 +567,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 		//		_cmdList->DrawInstanced(4, 1, 0, 0);		   // 頂点バッファ使用時
 		_cmdList->DrawIndexedInstanced(6, 1, 0, 0, 0); // インデックスバッファ使用時
-
-//		BarrierDesc.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
-//		BarrierDesc.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
 
 		_cmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(_backBuffers[bbIdx],
 								      D3D12_RESOURCE_STATE_RENDER_TARGET,
