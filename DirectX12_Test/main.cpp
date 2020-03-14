@@ -244,10 +244,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	/* 頂点バッファ -----------------------------------------------*/
 	Vertex vertices[] =
 	{
-		{{-0.4f, -0.7f, 0.0f},{0.0f, 1.0f}}, // 左下
-		{{-0.4f,  0.7f, 0.0f},{0.0f, 0.0f}}, // 左上
-		{{ 0.4f, -0.7f, 0.0f},{1.0f, 1.0f}}, // 右下
-		{{ 0.4f,  0.7f, 0.0f},{1.0f, 0.0f}}, // 右上
+		{{   0.0f, 100.0f, 0.0f},{0.0f, 1.0f}}, // 左下
+		{{   0.0f,   0.0f, 0.0f},{0.0f, 0.0f}}, // 左上
+		{{ 100.0f, 100.0f, 0.0f},{1.0f, 1.0f}}, // 右下
+		{{ 100.0f,   0.0f, 0.0f},{1.0f, 0.0f}}, // 右上
 	};
 
 	ID3D12Resource* vertBuff = nullptr;
@@ -500,6 +500,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	);
 
 	XMMATRIX matrix = XMMatrixIdentity();
+
+	matrix.r[0].m128_f32[0] =  2.0f / window_width;  // 1 列 1 行目
+	matrix.r[1].m128_f32[1] = -2.0f / window_height; // 2 列 2 行目
+	matrix.r[3].m128_f32[0] = -1.0f;				 // 1 列 4 行目
+	matrix.r[3].m128_f32[1] =  1.0f;				 // 2 列 4 行目
 
 	ID3D12Resource* constBuff = nullptr;
 
