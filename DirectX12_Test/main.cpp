@@ -251,6 +251,27 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 				   IID_PPV_ARGS(&depthBuffer)
 	);
 
+	D3D12_DESCRIPTOR_HEAP_DESC dsvHeapDesc = {};
+
+	dsvHeapDesc.NumDescriptors = 1;
+	dsvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
+
+	ID3D12DescriptorHeap* dsvHeap = nullptr;
+
+	result = _dev->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(&dsvHeap));
+
+	// 深度ビューの作成
+	D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
+
+	dsvDesc.Format = DXGI_FORMAT_D32_FLOAT; // 深度値に 32 ビット使用
+	dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+	dsvDesc.Flags = D3D12_DSV_FLAG_NONE;
+
+	_dev->CreateDepthStencilView(
+		  depthBuffer,
+		  &dsvDesc,
+		  dsvHeap->GetCPUDescriptorHandleForHeapStart());
+
 	ID3D12Fence* _fence = nullptr;
 
 	UINT64 _fenceVal = 0;
