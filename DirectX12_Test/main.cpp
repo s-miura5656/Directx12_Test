@@ -259,7 +259,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	std::vector<unsigned char> vertices(vertNum* pmdvertexsize); // バッファーの確保
 	fread(vertices.data(), vertices.size(), 1, fp);
 
-	fclose(fp);
 
 	struct Vertex
 	{
@@ -280,26 +279,26 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	auto img = scratchImg.GetImage(0, 0, 0); // 生データ抽出
 
 	/* 頂点バッファ -----------------------------------------------*/
-	Vertex vertices[] =
-	{
-		{{  -1.0f,  -1.0f, 0.0f},{0.0f, 1.0f}}, // 左下
-		{{  -1.0f,   1.0f, 0.0f},{0.0f, 0.0f}}, // 左上
-		{{   1.0f,  -1.0f, 0.0f},{1.0f, 1.0f}}, // 右下
-		{{   1.0f,   1.0f, 0.0f},{1.0f, 0.0f}}, // 右上
-	};
+//	Vertex vertices[] =
+//	{
+//		{{  -1.0f,  -1.0f, 0.0f},{0.0f, 1.0f}}, // 左下
+//		{{  -1.0f,   1.0f, 0.0f},{0.0f, 0.0f}}, // 左上
+//		{{   1.0f,  -1.0f, 0.0f},{1.0f, 1.0f}}, // 右下
+//		{{   1.0f,   1.0f, 0.0f},{1.0f, 0.0f}}, // 右上
+//	};
 
 	ID3D12Resource* vertBuff = nullptr;
 
 	result = _dev->CreateCommittedResource(
 				   &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
 				   D3D12_HEAP_FLAG_NONE,
-				   &CD3DX12_RESOURCE_DESC::Buffer(sizeof(vertices)),
+				   &CD3DX12_RESOURCE_DESC::Buffer(vertices.size()),
 				   D3D12_RESOURCE_STATE_GENERIC_READ,
 				   nullptr,
 				   IID_PPV_ARGS(&vertBuff)
 	);
 
-	Vertex* vertMap = nullptr;
+	unsigned char* vertMap = nullptr;
 	result = vertBuff->Map(0, nullptr, (void**)&vertMap);
 	std::copy(std::begin(vertices), std::end(vertices), vertMap);
 	vertBuff->Unmap(0, nullptr);
@@ -307,10 +306,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	D3D12_VERTEX_BUFFER_VIEW vbView = {};
 
 	vbView.BufferLocation = vertBuff->GetGPUVirtualAddress();
-	vbView.SizeInBytes = sizeof(vertices);
-	vbView.StrideInBytes = sizeof(vertices[0]);
+	vbView.SizeInBytes = vertices.size();
+	vbView.StrideInBytes = pmdvertexsize;
 	/*------------------------------------------------------------*/
 
+	fclose(fp);
 
 	/* インデックスバッファ --------------------------------------*/
 	unsigned short indices[] =
@@ -406,14 +406,18 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	/* 頂点レイアウト --------------------------------------------*/
 	D3D12_INPUT_ELEMENT_DESC inputLayout[] =
 	{
-		{"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0,
-		D3D12_APPEND_ALIGNED_ELEMENT,
-		D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0
-		},
-		{"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,
-		 0, D3D12_APPEND_ALIGNED_ELEMENT,
-		 D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0
-		},
+		{"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, 
+		             D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+		{"NORMAL",   0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT,
+					 D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+		{"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT,
+					 D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+		{"BONE_NO",  0, DXGI_FORMAT_R16G16_UINT, 0, D3D12_APPEND_ALIGNED_ELEMENT,
+					 D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+		{"WEIGHT",   0, DXGI_FORMAT_R8_UINT, 0, D3D12_APPEND_ALIGNED_ELEMENT,
+					 D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+//		{"EDGEFLT",  0, DXGI_FORMAT_R8_UINT, 0, D3D12_APPEND_ALIGNED_ELEMENT,
+//					 D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
 	};
 	/*------------------------------------------------------------*/
 
@@ -537,21 +541,23 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 					  img->slicePitch
 	);
 
+	/* 定数バッファー ----------------------------------------*/
 	auto worldMat = XMMatrixRotationY(XM_PIDIV4);
 
-	XMFLOAT3 eye(0, 0, -5);
-	XMFLOAT3 target(0, 0, 0);
+	XMFLOAT3 eye(0, 10, -15);
+	XMFLOAT3 target(0, 10, 0);
 	XMFLOAT3 up(0, 1, 0);
 
 	auto viewMat = XMMatrixLookAtLH(XMLoadFloat3(&eye), XMLoadFloat3(&target), XMLoadFloat3(&up));
 
 	auto projMat = XMMatrixPerspectiveFovLH(
-				   XM_PIDIV2,
-				   static_cast<float>(window_width) / static_cast<float>(window_height),
-				   1.0f,
-				   10.0f);
+				   XM_PIDIV2, // 画角 90°
+				   static_cast<float>(window_width) / static_cast<float>(window_height), // アスペクト比
+				   1.0f,    // 近いほう
+				   100.0f); // 遠いほう
 
 	auto WVP = worldMat * viewMat * projMat;
+	/*------------------------------------------------------*/
 
 //	XMMATRIX matrix = XMMatrixIdentity();
 
@@ -647,7 +653,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		_cmdList->OMSetRenderTargets(1, &rtvH, false, nullptr);
 
 		// 画面クリア
-		float clearColor[] = { 1.0f,1.0f,0.0f,1.0f };//黄色
+		float clearColor[] = { 1.0f,1.0f,1.0f,1.0f }; // 白色
 		_cmdList->ClearRenderTargetView(rtvH, clearColor, 0, nullptr);
 
 		/*-魔導書に書いてあるけど実装部分を書いてないところ ( 書かないと直角三角形にならない )-*/
@@ -657,7 +663,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 		_cmdList->SetGraphicsRootSignature(rootsignature);
 
-		_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_POINTLIST);
 		_cmdList->IASetVertexBuffers(0, 1, &vbView);   // 頂点バッファ
 		_cmdList->IASetIndexBuffer(&ibView);		   // インデックスバッファ
 
@@ -672,8 +678,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 		_cmdList->SetGraphicsRootDescriptorTable(1, heapHandle);
 
-		//		_cmdList->DrawInstanced(4, 1, 0, 0);		   // 頂点バッファ使用時
-		_cmdList->DrawIndexedInstanced(6, 1, 0, 0, 0); // インデックスバッファ使用時
+		_cmdList->DrawInstanced(vertNum, 1, 0, 0);		   // 頂点バッファ使用時
+//		_cmdList->DrawIndexedInstanced(6, 1, 0, 0, 0); // インデックスバッファ使用時
 
 		_cmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(_backBuffers[bbIdx],
 								      D3D12_RESOURCE_STATE_RENDER_TARGET,
