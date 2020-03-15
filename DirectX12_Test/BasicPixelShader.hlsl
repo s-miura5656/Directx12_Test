@@ -1,9 +1,10 @@
 #include "BasicShaderHeader.hlsli"
 
-Texture2D<float4> tex : register(t0);
-SamplerState smp : register(s0);
-
 float4 BasicPS( Output input) : SV_TARGET
 {
-    return float4(tex.Sample(smp, input.uv));
+    float3 light = normalize(float3(1, -1, 1));
+    
+    float brightness = dot(-light, input.normal.xyz);
+    
+    return float4(brightness, brightness, brightness, 1);
 }
