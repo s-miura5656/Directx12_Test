@@ -257,8 +257,18 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	fread(&vertNum, sizeof(vertNum), 1, fp);
 
 	std::vector<unsigned char> vertices(vertNum* pmdvertexsize); // バッファーの確保
+	
 	fread(vertices.data(), vertices.size(), 1, fp);
 
+	std::vector<unsigned short> indices;
+
+	unsigned int indicesNum;
+
+	fread(&indicesNum, sizeof(indicesNum), 1, fp);
+
+	indices.resize(indicesNum);
+
+	fread(indices.data(), indices.size() * sizeof(indices[0]), 1, fp);
 
 	struct Vertex
 	{
@@ -313,18 +323,18 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	fclose(fp);
 
 	/* インデックスバッファ --------------------------------------*/
-	unsigned short indices[] =
-	{
-		0,1,2,
-		2,1,3,
-	};
+//	unsigned short indices[] =
+//	{
+//		0,1,2,
+//		2,1,3,
+//	};
 
 	ID3D12Resource* idxBuff = nullptr;
 
 	result = _dev->CreateCommittedResource(
 				   &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
 				   D3D12_HEAP_FLAG_NONE,
-				   &CD3DX12_RESOURCE_DESC::Buffer(sizeof(idxBuff)),
+				   &CD3DX12_RESOURCE_DESC::Buffer(indices.size() * sizeof(indices[0])),
 				   D3D12_RESOURCE_STATE_GENERIC_READ,
 				   nullptr,
 				   IID_PPV_ARGS(&idxBuff)
@@ -339,7 +349,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 	ibView.BufferLocation = idxBuff->GetGPUVirtualAddress();
 	ibView.Format = DXGI_FORMAT_R16_UINT;
-	ibView.SizeInBytes = sizeof(indices);
+	ibView.SizeInBytes = indices.size() * sizeof(indices[0]);
 	/*------------------------------------------------------------*/
 
 
@@ -663,7 +673,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 		_cmdList->SetGraphicsRootSignature(rootsignature);
 
-		_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_POINTLIST);
+		_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		_cmdList->IASetVertexBuffers(0, 1, &vbView);   // 頂点バッファ
 		_cmdList->IASetIndexBuffer(&ibView);		   // インデックスバッファ
 
@@ -678,8 +688,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 		_cmdList->SetGraphicsRootDescriptorTable(1, heapHandle);
 
-		_cmdList->DrawInstanced(vertNum, 1, 0, 0);		   // 頂点バッファ使用時
-//		_cmdList->DrawIndexedInstanced(6, 1, 0, 0, 0); // インデックスバッファ使用時
+//		_cmdList->DrawInstanced(vertNum, 1, 0, 0);		   // 頂点バッファ使用時
+		_cmdList->DrawIndexedInstanced(indicesNum, 1, 0, 0, 0); // インデックスバッファ使用時
 
 		_cmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(_backBuffers[bbIdx],
 								      D3D12_RESOURCE_STATE_RENDER_TARGET,
