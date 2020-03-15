@@ -217,6 +217,40 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		handle.ptr += _dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 	}
 
+	// 深度バッファの作成
+	D3D12_RESOURCE_DESC depthResDesc = {};
+	
+	depthResDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;  // 二次元のテクスチャデータ
+	depthResDesc.Width = window_width;							  // 幅と高さはレンダーターゲットと同じ
+	depthResDesc.Height = window_height;						  // 同上
+	depthResDesc.DepthOrArraySize = 1;							  // テクスチャ配列でも、3D テクスチャでもない
+	depthResDesc.Format = DXGI_FORMAT_D32_FLOAT;				  // 深度値書き込み用フォーマット
+	depthResDesc.SampleDesc.Count = 1;							  // サンプルは 1 ピクセル当たり 1 つ
+	depthResDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL; // デプスステンシルとして使用
+
+	// 深度値用ヒーププロパティ
+	D3D12_HEAP_PROPERTIES depthHeapProp = {};
+
+	depthHeapProp.Type = D3D12_HEAP_TYPE_DEFAULT;
+	depthHeapProp.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+	depthHeapProp.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+
+	// このクリアバリューが重要な意味を持つ
+	D3D12_CLEAR_VALUE depthClearValue = {};
+	depthClearValue.DepthStencil.Depth = 1.0f; // 深さ 1.0 ( 最大値 )でクリア
+	depthClearValue.Format = DXGI_FORMAT_D32_FLOAT; // 32 ビット float 値としてクリア
+
+	ID3D12Resource* depthBuffer = nullptr;
+
+	result = _dev->CreateCommittedResource(
+				   &depthHeapProp,
+				   D3D12_HEAP_FLAG_NONE,
+				   &depthResDesc,
+				   D3D12_RESOURCE_STATE_DEPTH_WRITE,
+				   &depthClearValue,
+				   IID_PPV_ARGS(&depthBuffer)
+	);
+
 	ID3D12Fence* _fence = nullptr;
 
 	UINT64 _fenceVal = 0;
