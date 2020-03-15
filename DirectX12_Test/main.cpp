@@ -224,6 +224,43 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 	ShowWindow(hwnd, SW_SHOW); // ウィンドウ表示
 
+	// PMDヘッダー構造体
+	struct PMDheader
+	{
+		float version;		 // 例 : 00 00 80 3F = 1.00
+		char model_name[20]; // モデル名
+		char comment[256];	 // モデルコメント
+	};
+
+	char signature[3] = {}; // シグネチャ
+	PMDheader pmdheader = {};
+	auto fp = fopen("Content/Model/初音ミク.pmd", "rb");
+	
+	fread(signature, sizeof(signature), 1, fp);
+	fread(&pmdheader, sizeof(pmdheader), 1, fp);
+
+	// PMD頂点構造体
+	struct PMDVertex 
+	{
+		XMFLOAT3 pos;			  // 頂点座標	    : 12バイト
+		XMFLOAT3 normal;		  // 法線ベクトル	: 12バイト
+		XMFLOAT2 uv;			  // uv 座標		:  8バイト
+		unsigned short boneNo[2]; // ボーン番号		:  4バイト
+		unsigned char boneWeight; // ボーン影響度	:  1バイト
+		unsigned char edgeFlg;	  // 輪郭線フラグ	:  1バイト
+	};
+
+	constexpr size_t pmdvertexsize = 38; // 頂点１つ当たりのサイズ
+
+	unsigned int vertNum; // 頂点数
+
+	fread(&vertNum, sizeof(vertNum), 1, fp);
+
+	std::vector<unsigned char> vertices(vertNum* pmdvertexsize); // バッファーの確保
+	fread(vertices.data(), vertices.size(), 1, fp);
+
+	fclose(fp);
+
 	struct Vertex
 	{
 		XMFLOAT3 pos;
@@ -573,6 +610,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 	_dev->CreateConstantBufferView(&cbvDesc, basicHeapHandle);
 
+	
 	MSG msg = {};
 	float angle = 0.0f;
 	while (true)
