@@ -53,6 +53,7 @@ ID3D12GraphicsCommandList* _cmdList = nullptr;
 ID3D12CommandQueue* _cmdQueue = nullptr;
 IDXGISwapChain4* _swapchain = nullptr;
 
+
 void EnableDebugLayer() {
 	ID3D12Debug* debugLayer = nullptr;
 	if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugLayer)))) {
@@ -244,10 +245,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	/* 頂点バッファ -----------------------------------------------*/
 	Vertex vertices[] =
 	{
-		{{   0.0f, 100.0f, 0.0f},{0.0f, 1.0f}}, // 左下
-		{{   0.0f,   0.0f, 0.0f},{0.0f, 0.0f}}, // 左上
-		{{ 100.0f, 100.0f, 0.0f},{1.0f, 1.0f}}, // 右下
-		{{ 100.0f,   0.0f, 0.0f},{1.0f, 0.0f}}, // 右上
+		{{  -1.0f,  -1.0f, 0.0f},{0.0f, 1.0f}}, // 左下
+		{{  -1.0f,   1.0f, 0.0f},{0.0f, 0.0f}}, // 左上
+		{{   1.0f,  -1.0f, 0.0f},{1.0f, 1.0f}}, // 右下
+		{{   1.0f,   1.0f, 0.0f},{1.0f, 0.0f}}, // 右上
 	};
 
 	ID3D12Resource* vertBuff = nullptr;
@@ -499,28 +500,43 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 					  img->slicePitch
 	);
 
-	XMMATRIX matrix = XMMatrixIdentity();
+	auto worldMat = XMMatrixRotationY(XM_PIDIV4);
 
-	matrix.r[0].m128_f32[0] =  2.0f / window_width;  // 1 列 1 行目
-	matrix.r[1].m128_f32[1] = -2.0f / window_height; // 2 列 2 行目
-	matrix.r[3].m128_f32[0] = -1.0f;				 // 1 列 4 行目
-	matrix.r[3].m128_f32[1] =  1.0f;				 // 2 列 4 行目
+	XMFLOAT3 eye(0, 0, -5);
+	XMFLOAT3 target(0, 0, 0);
+	XMFLOAT3 up(0, 1, 0);
+
+	auto viewMat = XMMatrixLookAtLH(XMLoadFloat3(&eye), XMLoadFloat3(&target), XMLoadFloat3(&up));
+
+	auto projMat = XMMatrixPerspectiveFovLH(
+				   XM_PIDIV2,
+				   static_cast<float>(window_width) / static_cast<float>(window_height),
+				   1.0f,
+				   10.0f);
+
+	auto WVP = worldMat * viewMat * projMat;
+
+//	XMMATRIX matrix = XMMatrixIdentity();
+
+//	matrix.r[0].m128_f32[0] =  2.0f / window_width;  // 1 列 1 行目
+//	matrix.r[1].m128_f32[1] = -2.0f / window_height; // 2 列 2 行目
+//	matrix.r[3].m128_f32[0] = -1.0f;				 // 1 列 4 行目
+//	matrix.r[3].m128_f32[1] =  1.0f;				 // 2 列 4 行目
 
 	ID3D12Resource* constBuff = nullptr;
 
 	result = _dev->CreateCommittedResource(
 				   &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
 				   D3D12_HEAP_FLAG_NONE,
-				   &CD3DX12_RESOURCE_DESC::Buffer((sizeof(matrix) + 0xff) & ~0xff),
+				   &CD3DX12_RESOURCE_DESC::Buffer((sizeof(WVP) + 0xff) & ~0xff),
 				   D3D12_RESOURCE_STATE_GENERIC_READ,
 				   nullptr,
 				   IID_PPV_ARGS(&constBuff));
 
 	XMMATRIX* mapMatrix;
-
 	result = constBuff->Map(0, nullptr, (void**)&mapMatrix);
 
-	*mapMatrix = matrix;
+	*mapMatrix = WVP;
 
 	ID3D12DescriptorHeap* basicDescHeap = nullptr;
 	D3D12_DESCRIPTOR_HEAP_DESC descHeapDesc = {};
@@ -557,11 +573,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 	_dev->CreateConstantBufferView(&cbvDesc, basicHeapHandle);
 
-
-	
-
 	MSG msg = {};
-
+	float angle = 0.0f;
 	while (true)
 	{
 		if (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
@@ -574,6 +587,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		{
 			break;
 		}
+
+		angle += 0.1f;
+		worldMat = XMMatrixRotationY(angle);
+		WVP = worldMat * viewMat * projMat;
+		*mapMatrix = WVP;
 
 		// DirectX処理
 		// バックバッファのインデックスを取得
