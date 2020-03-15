@@ -501,6 +501,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	gpipeline.RasterizerState.DepthClipEnable = true;
 	gpipeline.BlendState.AlphaToCoverageEnable = false;
 	gpipeline.BlendState.IndependentBlendEnable = false;
+	gpipeline.DepthStencilState.DepthEnable = true; // 深度バッファーを使う
+	gpipeline.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL; // 書き込む
+	gpipeline.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS; // 小さいほうを採用
+	gpipeline.DSVFormat = DXGI_FORMAT_D32_FLOAT;
 
 	D3D12_RENDER_TARGET_BLEND_DESC renderTargetBlendDesc = {};
 
@@ -715,11 +719,13 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		// レンダーターゲットを指定
 		auto rtvH = rtvHeaps->GetCPUDescriptorHandleForHeapStart();
 		rtvH.ptr += bbIdx * _dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-		_cmdList->OMSetRenderTargets(1, &rtvH, false, nullptr);
+		auto dsvH = dsvHeap->GetCPUDescriptorHandleForHeapStart();
+		_cmdList->OMSetRenderTargets(1, &rtvH, false, &dsvH);
 
 		// 画面クリア
 		float clearColor[] = { 1.0f,1.0f,1.0f,1.0f }; // 白色
 		_cmdList->ClearRenderTargetView(rtvH, clearColor, 0, nullptr);
+		_cmdList->ClearDepthStencilView(dsvH, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 
 		/*-魔導書に書いてあるけど実装部分を書いてないところ ( 書かないと直角三角形にならない )-*/
 		_cmdList->RSSetViewports(1, &CD3DX12_VIEWPORT(0.0f, 0.0f, window_width, window_height));
