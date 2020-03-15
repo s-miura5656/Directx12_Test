@@ -467,6 +467,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	}
 	/*------------------------------------------------------------*/
 
+	
 
 	/* 頂点レイアウト --------------------------------------------*/
 	D3D12_INPUT_ELEMENT_DESC inputLayout[] =
@@ -628,6 +629,13 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	auto WVP = worldMat * viewMat * projMat;
 	/*------------------------------------------------------*/
 
+	// シェーダー側に渡す為の基本的な行列のデータ
+	struct MatricesData
+	{
+		XMMATRIX world;	   // モデル本体を回転させたり移動させたりする行列
+		XMMATRIX viewproj; // ビューとプロジェクションの合成行列
+	};
+
 //	XMMATRIX matrix = XMMatrixIdentity();
 
 //	matrix.r[0].m128_f32[0] =  2.0f / window_width;  // 1 列 1 行目
@@ -640,15 +648,24 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	result = _dev->CreateCommittedResource(
 				   &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
 				   D3D12_HEAP_FLAG_NONE,
-				   &CD3DX12_RESOURCE_DESC::Buffer((sizeof(WVP) + 0xff) & ~0xff),
+				   &CD3DX12_RESOURCE_DESC::Buffer((sizeof(MatricesData) + 0xff) & ~0xff),
 				   D3D12_RESOURCE_STATE_GENERIC_READ,
 				   nullptr,
 				   IID_PPV_ARGS(&constBuff));
 
-	XMMATRIX* mapMatrix;
+//	XMMATRIX* mapMatrix;
+//	result = constBuff->Map(0, nullptr, (void**)&mapMatrix);
+
+	
+
+	MatricesData* mapMatrix = nullptr;
+
 	result = constBuff->Map(0, nullptr, (void**)&mapMatrix);
 
-	*mapMatrix = WVP;
+	mapMatrix->world = worldMat;
+	mapMatrix->viewproj = viewMat * projMat;
+
+//	*mapMatrix = WVP;
 
 	ID3D12DescriptorHeap* basicDescHeap = nullptr;
 	D3D12_DESCRIPTOR_HEAP_DESC descHeapDesc = {};
@@ -703,8 +720,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 		angle += 0.1f;
 		worldMat = XMMatrixRotationY(angle);
-		WVP = worldMat * viewMat * projMat;
-		*mapMatrix = WVP;
+//		WVP = worldMat * viewMat * projMat;
+//		*mapMatrix = WVP;
+
+		mapMatrix->world = worldMat;
+		mapMatrix->viewproj = viewMat * projMat;
 
 		// DirectX処理
 		// バックバッファのインデックスを取得
