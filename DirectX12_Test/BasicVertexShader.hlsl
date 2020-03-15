@@ -9,6 +9,8 @@ Output BasicVS( float4 pos        : POSITION,
 {
     Output output;
     output.svpos = mul(mat, pos);
+    output.normal = normal;
     output.uv    = uv;
+    
 	return output;
 }
