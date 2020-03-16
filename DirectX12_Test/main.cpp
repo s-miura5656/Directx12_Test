@@ -517,6 +517,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	}
 	/*------------------------------------------------------------*/
 
+	
 
 	/* シェーダ設定 ----------------------------------------------*/
 	ID3DBlob* _vsBlob = nullptr;
@@ -820,7 +821,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 			break;
 		}
 
-		angle += 0.1f;
+		angle += 0.01f;
 		worldMat = XMMatrixRotationY(angle);
 //		WVP = worldMat * viewMat * projMat;
 //		*mapMatrix = WVP;
@@ -864,10 +865,27 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 				  0, basicDescHeap->GetGPUDescriptorHandleForHeapStart());
 		
 		_cmdList->SetDescriptorHeaps(1, &materialDescHeap);
-		_cmdList->SetGraphicsRootDescriptorTable(
-				  1, materialDescHeap->GetGPUDescriptorHandleForHeapStart());
+//		_cmdList->SetGraphicsRootDescriptorTable(
+//				  1, materialDescHeap->GetGPUDescriptorHandleForHeapStart());
 
-		_cmdList->DrawIndexedInstanced(indicesNum, 1, 0, 0, 0); // インデックスバッファ使用時
+		auto materialH = materialDescHeap->GetGPUDescriptorHandleForHeapStart();
+
+		unsigned int idxOffset = 0;
+
+		for (auto& m : materials)
+		{
+			_cmdList->SetGraphicsRootDescriptorTable(1, materialH);
+
+			_cmdList->DrawIndexedInstanced(m.indicesNum, 1, idxOffset, 0, 0);
+
+			// ヒープポインターとインデックスを次に進める
+			materialH.ptr += _dev->GetDescriptorHandleIncrementSize(
+								   D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+		
+			idxOffset += m.indicesNum;
+		}
+
+//		_cmdList->DrawIndexedInstanced(indicesNum, 1, 0, 0, 0); // インデックスバッファ使用時
 
 		_cmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(_backBuffers[bbIdx],
 								      D3D12_RESOURCE_STATE_RENDER_TARGET,
