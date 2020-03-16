@@ -162,6 +162,60 @@ ID3D12Resource* LoadTextureFromFile(std::string& texPath)
 	return texBuff;
 }
 
+ID3D12Resource* CreateWhiteTexture()
+{
+	// WriteToSubresource で転送する用のヒープ設定
+	D3D12_HEAP_PROPERTIES texHeapProp = {};
+
+	texHeapProp.Type = D3D12_HEAP_TYPE_CUSTOM;
+	texHeapProp.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;
+	texHeapProp.MemoryPoolPreference = D3D12_MEMORY_POOL_L0;
+	texHeapProp.CreationNodeMask = 0;
+	texHeapProp.VisibleNodeMask = 0;
+
+	D3D12_RESOURCE_DESC resDesc = {};
+
+	resDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	resDesc.Width = 4;
+	resDesc.Height = 4;
+	resDesc.DepthOrArraySize = 1;
+	resDesc.SampleDesc.Count = 1;
+	resDesc.SampleDesc.Quality = 0;
+	resDesc.MipLevels = 1;
+	resDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	resDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+	resDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
+
+	// バッファー作成
+	ID3D12Resource* whiteBuff = nullptr;
+
+	auto result = _dev->CreateCommittedResource(
+						&texHeapProp,
+						D3D12_HEAP_FLAG_NONE,
+						&resDesc,
+						D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+						nullptr,
+						IID_PPV_ARGS(&whiteBuff));
+
+	if (FAILED(result))
+	{
+		return nullptr;
+	}
+
+	std::vector<unsigned char> data(4 * 4 * 4);
+	std::fill(data.begin(), data.end(), 0xff);
+
+	result = whiteBuff->WriteToSubresource(
+		0,
+		nullptr,
+		data.data(),
+		4 * 4,
+		data.size()
+	);
+
+	return whiteBuff;
+}
+
 // 面倒だけど書かなあかんやつ
 LRESULT WindowProcedure(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
 	if (msg == WM_DESTROY) // ウィンドウが破棄されたら呼ばれます
@@ -409,7 +463,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 	char signature[3] = {}; // シグネチャ
 	PMDheader pmdheader = {};
-	std::string strModelPath = "Model/初音ミク.pmd";
+	std::string strModelPath = "Content/Model/初音ミク.pmd";
 	auto fp = fopen(strModelPath.c_str(), "rb");
 	
 	fread(signature, sizeof(signature), 1, fp);
@@ -635,25 +689,32 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 	// 先頭を記録
 	auto matDescHeapH = materialDescHeap->GetCPUDescriptorHandleForHeapStart();
-	auto inc = _dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	auto incSize = _dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+	auto whiteTex = CreateWhiteTexture();
 
 	for (int i = 0; i < materialNum; ++i)
 	{
 		_dev->CreateConstantBufferView(&matCBVDesc, matDescHeapH);
-		matDescHeapH.ptr += inc;
+		matDescHeapH.ptr += incSize;
 		matCBVDesc.BufferLocation += materialBuffSize;
 
-		if (textureResources[i] != nullptr)
+		if (textureResources[i] == nullptr)
+		{
+			srvDesc.Format = whiteTex->GetDesc().Format;
+			_dev->CreateShaderResourceView(
+				  whiteTex, &srvDesc, matDescHeapH);
+		}
+		else
 		{
 			srvDesc.Format = textureResources[i]->GetDesc().Format;
+			_dev->CreateShaderResourceView(
+				  textureResources[i],
+				  &srvDesc,
+				  matDescHeapH);
 		}
 
-		_dev->CreateShaderResourceView(
-			textureResources[i],
-			&srvDesc,
-			matDescHeapH);
-
-		matDescHeapH.ptr += inc;
+		matDescHeapH.ptr += incSize;
 	}
 	/*------------------------------------------------------------*/
 
@@ -943,7 +1004,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 			break;
 		}
 
-//		angle += 0.01f;
+		angle += 0.01f;
 		worldMat = XMMatrixRotationY(angle);
 		mapMatrix->world = worldMat;
 		mapMatrix->viewproj = viewMat * projMat;
