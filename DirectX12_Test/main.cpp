@@ -272,6 +272,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		  &dsvDesc,
 		  dsvHeap->GetCPUDescriptorHandleForHeapStart());
 
+
+
 	ID3D12Fence* _fence = nullptr;
 
 	UINT64 _fenceVal = 0;
@@ -458,6 +460,61 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	ibView.BufferLocation = idxBuff->GetGPUVirtualAddress();
 	ibView.Format = DXGI_FORMAT_R16_UINT;
 	ibView.SizeInBytes = indices.size() * sizeof(indices[0]);
+	/*------------------------------------------------------------*/
+
+	/* マテリアルバッファ --------------------------------------*/
+	auto materialBuffSize = sizeof(MaterialForHlsl);
+	materialBuffSize = (materialBuffSize + 0xff) & ~0xff;
+
+	ID3D12Resource* materialBuff = nullptr;
+	
+	result = _dev->CreateCommittedResource(
+				   &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+				   D3D12_HEAP_FLAG_NONE,
+				   &CD3DX12_RESOURCE_DESC::Buffer(materialBuffSize * materialNum),
+				   D3D12_RESOURCE_STATE_GENERIC_READ,
+				   nullptr,
+				   IID_PPV_ARGS(&materialBuff));
+
+	char* mapMaterial = nullptr;
+
+	result = materialBuff->Map(0, nullptr, (void**)&mapMaterial);
+	
+	for (auto& m : materials)
+	{
+		*((MaterialForHlsl*)mapMaterial) = m.material; // データコピー
+		mapMaterial += materialBuffSize;
+	}
+
+	materialBuff->Unmap(0, nullptr);
+
+	ID3D12DescriptorHeap* materialDescHeap = nullptr;
+
+	D3D12_DESCRIPTOR_HEAP_DESC matDescHeapDesc = {};
+
+	matDescHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	matDescHeapDesc.NodeMask = 0;
+	matDescHeapDesc.NumDescriptors = materialNum;
+	matDescHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+
+	result = _dev->CreateDescriptorHeap(
+				   &matDescHeapDesc, IID_PPV_ARGS(&materialDescHeap));
+
+	D3D12_CONSTANT_BUFFER_VIEW_DESC matCBVDesc = {};
+
+	matCBVDesc.BufferLocation = materialBuff->GetGPUVirtualAddress();
+	matCBVDesc.SizeInBytes = materialBuffSize; // マテリアルの 256 アライメントサイズ
+
+	// 先頭を記録
+	auto matDescHeapH = materialDescHeap->GetCPUDescriptorHandleForHeapStart();
+
+	for (int i = 0; i < materialNum; ++i)
+	{
+		_dev->CreateConstantBufferView(&matCBVDesc, matDescHeapH);
+		matDescHeapH.ptr += _dev->GetDescriptorHandleIncrementSize(
+								  D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+		matCBVDesc.BufferLocation += materialBuffSize;
+	}
 	/*------------------------------------------------------------*/
 
 
