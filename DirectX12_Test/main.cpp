@@ -305,6 +305,51 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		unsigned char edgeFlg;	  // 輪郭線フラグ	:  1バイト
 	};
 
+#pragma pack(1) // ここから 1 バイトパッキングとなり、アライメントは発生しない
+
+	// PMD マテリアル構造体
+	struct PMDMaterial
+	{
+		XMFLOAT3 diffuse;		 // ディフューズ色
+		float alpha;			 // ディフューズα
+		float specularity;		 // スペキュラの強さ
+		XMFLOAT3 specular;		 // スペキュラ色
+		XMFLOAT3 ambient;		 // アンビエント色
+		unsigned char toonIdx;	 // トゥーン番号
+		unsigned char edgeFlg;	 // マテリアルごとの輪郭線フラグ
+
+		// 注意 : ここに 2 バイトのパディングがある 
+
+		unsigned int indicesNum; // 子のマテリアルが割り当てられるインデックス数 
+		char texFilePath[20];	 //  テクスチャファイルパス + α
+	};
+
+	// シェーダー側に投げられるマテリアルデータ
+	struct MaterialForHlsl
+	{
+		XMFLOAT3 diffuse;
+		float alpha;
+		XMFLOAT3 specular;
+		float specularity;
+		XMFLOAT3 ambient;
+	};
+
+	// それ以外のマテリアルデータ
+	struct AdditionalMaterial
+	{
+		std::string texPath;
+		int toonIdx;
+		bool edgeFlg;
+	};
+
+	// 全体をまとめるデータ
+	struct Material
+	{
+		unsigned int indicesNum;
+		MaterialForHlsl material;
+		AdditionalMaterial additional;
+	};
+
 	constexpr size_t pmdvertexsize = 38; // 頂点１つ当たりのサイズ
 
 	unsigned int vertNum; // 頂点数
@@ -325,6 +370,26 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 	fread(indices.data(), indices.size() * sizeof(indices[0]), 1, fp);
 
+	unsigned int materialNum;
+	
+	fread(&materialNum, sizeof(materialNum), 1, fp);
+	
+	std::vector<PMDMaterial> pmdMaterials(materialNum);
+	
+	fread(pmdMaterials.data(), pmdMaterials.size() * sizeof(PMDMaterial), 1, fp);
+
+	std::vector<Material> materials(pmdMaterials.size());
+
+	for (size_t i = 0; i < pmdMaterials.size(); ++i)
+	{
+		materials[i].indicesNum		      = pmdMaterials[i].indicesNum;
+		materials[i].material.diffuse     = pmdMaterials[i].diffuse;
+		materials[i].material.alpha       = pmdMaterials[i].alpha;
+		materials[i].material.specular    = pmdMaterials[i].specular;
+		materials[i].material.specularity = pmdMaterials[i].specularity;
+		materials[i].material.ambient	  = pmdMaterials[i].ambient;
+	}
+
 	struct Vertex
 	{
 		XMFLOAT3 pos;
@@ -343,15 +408,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 	auto img = scratchImg.GetImage(0, 0, 0); // 生データ抽出
 
-	/* 頂点バッファ -----------------------------------------------*/
-//	Vertex vertices[] =
-//	{
-//		{{  -1.0f,  -1.0f, 0.0f},{0.0f, 1.0f}}, // 左下
-//		{{  -1.0f,   1.0f, 0.0f},{0.0f, 0.0f}}, // 左上
-//		{{   1.0f,  -1.0f, 0.0f},{1.0f, 1.0f}}, // 右下
-//		{{   1.0f,   1.0f, 0.0f},{1.0f, 0.0f}}, // 右上
-//	};
 
+
+	/* 頂点バッファ -----------------------------------------------*/
 	ID3D12Resource* vertBuff = nullptr;
 
 	result = _dev->CreateCommittedResource(
@@ -378,12 +437,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	fclose(fp);
 
 	/* インデックスバッファ --------------------------------------*/
-//	unsigned short indices[] =
-//	{
-//		0,1,2,
-//		2,1,3,
-//	};
-
 	ID3D12Resource* idxBuff = nullptr;
 
 	result = _dev->CreateCommittedResource(
@@ -636,13 +689,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		XMMATRIX viewproj; // ビューとプロジェクションの合成行列
 	};
 
-//	XMMATRIX matrix = XMMatrixIdentity();
-
-//	matrix.r[0].m128_f32[0] =  2.0f / window_width;  // 1 列 1 行目
-//	matrix.r[1].m128_f32[1] = -2.0f / window_height; // 2 列 2 行目
-//	matrix.r[3].m128_f32[0] = -1.0f;				 // 1 列 4 行目
-//	matrix.r[3].m128_f32[1] =  1.0f;				 // 2 列 4 行目
-
 	ID3D12Resource* constBuff = nullptr;
 
 	result = _dev->CreateCommittedResource(
@@ -652,11 +698,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 				   D3D12_RESOURCE_STATE_GENERIC_READ,
 				   nullptr,
 				   IID_PPV_ARGS(&constBuff));
-
-//	XMMATRIX* mapMatrix;
-//	result = constBuff->Map(0, nullptr, (void**)&mapMatrix);
-
-	
 
 	MatricesData* mapMatrix = nullptr;
 
