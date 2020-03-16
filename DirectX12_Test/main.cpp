@@ -20,6 +20,16 @@
 
 using namespace DirectX;
 
+const unsigned int window_width = 1280;
+const unsigned int window_height = 720;
+
+IDXGIFactory6* _dxgiFactory = nullptr;
+ID3D12Device* _dev = nullptr;
+ID3D12CommandAllocator* _cmdAllocator = nullptr;
+ID3D12GraphicsCommandList* _cmdList = nullptr;
+ID3D12CommandQueue* _cmdQueue = nullptr;
+IDXGISwapChain4* _swapchain = nullptr;
+
 ///@brief コンソール画面にフォーマット付き文字列を表示
 ///@param format フォーマット(%dとか%fとかの)
 ///@param 可変長引数
@@ -44,7 +54,7 @@ std::string GetTexturePathFromModelAndTexPath(
 	int pathIndex1 = modelPath.rfind('/');
 	int pathIndex2 = modelPath.rfind('\\');
 	auto pathIndex = max(pathIndex1, pathIndex2);
-	auto folderPath = modelPath.substr(0, pathIndex);
+	auto folderPath = modelPath.substr(0, pathIndex + 1);
 	
 	return folderPath + texPath;
 }
@@ -124,12 +134,12 @@ ID3D12Resource* LoadTextureFromFile(std::string& texPath)
 	ID3D12Resource* texBuff = nullptr;
 
 	result = _dev->CreateCommittedResource(
-		&texHeapProp,
-		D3D12_HEAP_FLAG_NONE,
-		&resDesc,
-		D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
-		nullptr,
-		IID_PPV_ARGS(&texBuff));
+			 &texHeapProp,
+			 D3D12_HEAP_FLAG_NONE,
+			 &resDesc,
+			 D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+			 nullptr,
+			 IID_PPV_ARGS(&texBuff));
 
 	if (FAILED(result))
 	{
@@ -161,17 +171,6 @@ LRESULT WindowProcedure(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
 	}
 	return DefWindowProc(hwnd, msg, wparam, lparam); // 規定の処理を行う
 }
-
-const unsigned int window_width = 1280;
-const unsigned int window_height = 720;
-
-IDXGIFactory6* _dxgiFactory = nullptr;
-ID3D12Device* _dev = nullptr;
-ID3D12CommandAllocator* _cmdAllocator = nullptr;
-ID3D12GraphicsCommandList* _cmdList = nullptr;
-ID3D12CommandQueue* _cmdQueue = nullptr;
-IDXGISwapChain4* _swapchain = nullptr;
-
 
 void EnableDebugLayer() {
 	ID3D12Debug* debugLayer = nullptr;
@@ -410,7 +409,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 	char signature[3] = {}; // シグネチャ
 	PMDheader pmdheader = {};
-	std::string strModelPath = "Content/Model/初音ミク.pmd";
+	std::string strModelPath = "Model/初音ミク.pmd";
 	auto fp = fopen(strModelPath.c_str(), "rb");
 	
 	fread(signature, sizeof(signature), 1, fp);
@@ -493,10 +492,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	fread(indices.data(), indices.size() * sizeof(indices[0]), 1, fp);
 
 	unsigned int materialNum;
-	std::vector<ID3D12Resource*> textureResources(materialNum);
 
 	fread(&materialNum, sizeof(materialNum), 1, fp);
-	
+
+	std::vector<ID3D12Resource*> textureResources(materialNum);
+
 	std::vector<PMDMaterial> pmdMaterials(materialNum);
 	
 	fread(pmdMaterials.data(), pmdMaterials.size() * sizeof(PMDMaterial), 1, fp);
@@ -513,15 +513,25 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		materials[i].material.ambient	  = pmdMaterials[i].ambient;
 	}
 
+	for (int i = 0; i < pmdMaterials.size(); ++i)
+	{
+		if (strlen(pmdMaterials[i].texFilePath) == 0)
+		{
+			textureResources[i] = nullptr;
+		}
+
+		auto texFilePath = GetTexturePathFromModelAndTexPath(
+			strModelPath,
+			pmdMaterials[i].texFilePath);
+
+		textureResources[i] = LoadTextureFromFile(texFilePath);
+	}
+
 	struct Vertex
 	{
 		XMFLOAT3 pos;
 		XMFLOAT2 uv;
 	};
-
-	
-
-
 
 	/* 頂点バッファ -----------------------------------------------*/
 	ID3D12Resource* vertBuff = nullptr;
@@ -605,7 +615,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 	matDescHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 	matDescHeapDesc.NodeMask = 0;
-	matDescHeapDesc.NumDescriptors = materialNum;
+	matDescHeapDesc.NumDescriptors = materialNum * 2;
 	matDescHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 
 	result = _dev->CreateDescriptorHeap(
@@ -616,15 +626,34 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	matCBVDesc.BufferLocation = materialBuff->GetGPUVirtualAddress();
 	matCBVDesc.SizeInBytes = materialBuffSize; // マテリアルの 256 アライメントサイズ
 
+	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+
+	srvDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Texture2D.MipLevels = 1;
+
 	// 先頭を記録
 	auto matDescHeapH = materialDescHeap->GetCPUDescriptorHandleForHeapStart();
+	auto inc = _dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
 	for (int i = 0; i < materialNum; ++i)
 	{
 		_dev->CreateConstantBufferView(&matCBVDesc, matDescHeapH);
-		matDescHeapH.ptr += _dev->GetDescriptorHandleIncrementSize(
-								  D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+		matDescHeapH.ptr += inc;
 		matCBVDesc.BufferLocation += materialBuffSize;
+
+		if (textureResources[i] != nullptr)
+		{
+			srvDesc.Format = textureResources[i]->GetDesc().Format;
+		}
+
+		_dev->CreateShaderResourceView(
+			textureResources[i],
+			&srvDesc,
+			matDescHeapH);
+
+		matDescHeapH.ptr += inc;
 	}
 	/*------------------------------------------------------------*/
 
@@ -655,8 +684,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 			std::string errstr;
 			errstr.resize(errorBlob->GetBufferSize());
 			std::copy_n((char*)errorBlob->GetBufferPointer(),
-				errorBlob->GetBufferSize(),
-				errstr.begin());
+						errorBlob->GetBufferSize(),
+						errstr.begin());
 			errstr += "\n";
 			::OutputDebugStringA(errstr.c_str());
 		}
@@ -749,7 +778,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	D3D12_ROOT_SIGNATURE_DESC rootSignatureDesc = {};
 	rootSignatureDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 
-	D3D12_DESCRIPTOR_RANGE descTblRange[2] = {};//テクスチャと定数の２つ
+	D3D12_DESCRIPTOR_RANGE descTblRange[3] = {};//テクスチャと定数の２つ
 	
 	descTblRange[0].NumDescriptors = 1;
 	descTblRange[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
@@ -761,6 +790,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	descTblRange[1].BaseShaderRegister = 1;
 	descTblRange[1].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
+	descTblRange[2].NumDescriptors = 1;
+	descTblRange[2].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+	descTblRange[2].BaseShaderRegister = 0;
+	descTblRange[2].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
 	D3D12_ROOT_PARAMETER rootparam[2] = {};
 	
 	rootparam[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
@@ -770,8 +804,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 	rootparam[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
 	rootparam[1].DescriptorTable.pDescriptorRanges = &descTblRange[1];
-	rootparam[1].DescriptorTable.NumDescriptorRanges = 1;
-	rootparam[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+	rootparam[1].DescriptorTable.NumDescriptorRanges = 2;
+	rootparam[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
 	rootSignatureDesc.pParameters = rootparam;// ルートパラメータの先頭アドレス
 	rootSignatureDesc.NumParameters = 2;          // ルートパラメータ数
@@ -826,20 +860,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		rgba.G = rand() % 256;
 		rgba.B = rand() % 256;
 		rgba.A = 255;
-	}
-
-	for ( int i = 0; i < pmdMaterials.size(); ++i)
-	{
-		if (strlen(pmdMaterials[i].texFilePath) == 0)
-		{
-			textureResources[i] = nullptr;
-		}
-
-		auto texFilePath = GetTexturePathFromModelAndTexPath(
-						   strModelPath,
-						   pmdMaterials[i].texFilePath);
-
-		textureResources[i] = LoadTextureFromFile(texFilePath);
 	}
 
 	
@@ -898,13 +918,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 	result = _dev->CreateDescriptorHeap(&descHeapDesc, IID_PPV_ARGS(&basicDescHeap));
 
-	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-
-	srvDesc.Format = metadata.format;
-	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-	srvDesc.Texture2D.MipLevels = 1;
-
 	auto basicHeapHandle = basicDescHeap->GetCPUDescriptorHandleForHeapStart();
 
 	D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc = {};
@@ -930,7 +943,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 			break;
 		}
 
-		angle += 0.01f;
+//		angle += 0.01f;
 		worldMat = XMMatrixRotationY(angle);
 		mapMatrix->world = worldMat;
 		mapMatrix->viewproj = viewMat * projMat;
@@ -966,17 +979,19 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		_cmdList->IASetIndexBuffer(&ibView);		   // インデックスバッファ
 
 		_cmdList->SetGraphicsRootSignature(rootsignature);
+		
 		_cmdList->SetDescriptorHeaps(1, &basicDescHeap);
 		_cmdList->SetGraphicsRootDescriptorTable(
 				  0, basicDescHeap->GetGPUDescriptorHandleForHeapStart());
 		
+
 		_cmdList->SetDescriptorHeaps(1, &materialDescHeap);
-//		_cmdList->SetGraphicsRootDescriptorTable(
-//				  1, materialDescHeap->GetGPUDescriptorHandleForHeapStart());
 
 		auto materialH = materialDescHeap->GetGPUDescriptorHandleForHeapStart();
-
 		unsigned int idxOffset = 0;
+
+		auto cbvsrvIncSize = _dev->GetDescriptorHandleIncrementSize(
+								   D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV) * 2;
 
 		for (auto& m : materials)
 		{
@@ -985,13 +1000,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 			_cmdList->DrawIndexedInstanced(m.indicesNum, 1, idxOffset, 0, 0);
 
 			// ヒープポインターとインデックスを次に進める
-			materialH.ptr += _dev->GetDescriptorHandleIncrementSize(
-								   D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+			materialH.ptr += cbvsrvIncSize;
 		
 			idxOffset += m.indicesNum;
 		}
-
-//		_cmdList->DrawIndexedInstanced(indicesNum, 1, 0, 0, 0); // インデックスバッファ使用時
 
 		_cmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(_backBuffers[bbIdx],
 								      D3D12_RESOURCE_STATE_RENDER_TARGET,
