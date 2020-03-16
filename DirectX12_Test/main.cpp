@@ -33,6 +33,125 @@ void DebugOutputFormatString(const char* format, ...) {
 #endif // _DEBUG
 }
 
+// モデルのパスとテクスチャのパスから合成パスを得る
+// @param modelPath アプリケーションから見た pmd モデルのパス
+// @param texPath PMD モデルから見たテクスチャのパス
+// @return アプリケーションから見たテクスチャのパス
+std::string GetTexturePathFromModelAndTexPath(
+			const std::string& modelPath,
+			const char* texPath)
+{
+	int pathIndex1 = modelPath.rfind('/');
+	int pathIndex2 = modelPath.rfind('\\');
+	auto pathIndex = max(pathIndex1, pathIndex2);
+	auto folderPath = modelPath.substr(0, pathIndex);
+	
+	return folderPath + texPath;
+}
+
+// std::string ( マルチバイト文字列 ) からstd::wstring ( ワイド文字列 )　を得る
+// @param str マルチバイト文字列
+// @return 変換されたワイド文字列
+std::wstring GetWideStringFromString(const std::string& str)
+{
+	// 呼び出し一回目 ( 文字列数を得る )
+	auto num1 = MultiByteToWideChar(
+				CP_ACP,
+				MB_PRECOMPOSED | MB_ERR_INVALID_CHARS,
+				str.c_str(),
+				-1,
+				nullptr,
+				0);
+
+	std::wstring wstr;
+	wstr.resize(num1);
+
+	auto num2 = MultiByteToWideChar(
+				CP_ACP,
+				MB_PRECOMPOSED | MB_ERR_INVALID_CHARS,
+				str.c_str(),
+				-1,
+				&wstr[0],
+				num1);
+
+	assert(num1 == num2);
+	
+	return wstr;
+}
+
+ID3D12Resource* LoadTextureFromFile(std::string& texPath)
+{
+	// WIC テクスチャのロード
+	TexMetadata metadata = {};
+	ScratchImage scratchImg = {};
+
+	auto result = LoadFromWICFile(
+				  GetWideStringFromString(texPath).c_str(),
+				  WIC_FLAGS_NONE,
+				  &metadata,
+				  scratchImg);
+
+	if (FAILED(result))
+	{
+		return nullptr;
+	}
+
+	auto img = scratchImg.GetImage(0, 0, 0);
+
+	// WriteToSubresource で転送する用のヒープ設定
+	D3D12_HEAP_PROPERTIES texHeapProp = {};
+
+	texHeapProp.Type = D3D12_HEAP_TYPE_CUSTOM;
+	texHeapProp.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;
+	texHeapProp.MemoryPoolPreference = D3D12_MEMORY_POOL_L0;
+	texHeapProp.CreationNodeMask = 0;
+	texHeapProp.VisibleNodeMask = 0;
+
+	D3D12_RESOURCE_DESC resDesc = {};
+
+	resDesc.Format = metadata.format;
+	resDesc.Width = metadata.width;
+	resDesc.Height = metadata.height;
+	resDesc.DepthOrArraySize = metadata.arraySize;
+	resDesc.SampleDesc.Count = 1;
+	resDesc.SampleDesc.Quality = 0;
+	resDesc.MipLevels = metadata.mipLevels;
+	resDesc.Dimension = static_cast<D3D12_RESOURCE_DIMENSION>(metadata.dimension);
+	resDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+	resDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
+
+	// バッファー作成
+	ID3D12Resource* texBuff = nullptr;
+
+	result = _dev->CreateCommittedResource(
+		&texHeapProp,
+		D3D12_HEAP_FLAG_NONE,
+		&resDesc,
+		D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+		nullptr,
+		IID_PPV_ARGS(&texBuff));
+
+	if (FAILED(result))
+	{
+		return nullptr;
+	}
+
+	result = texBuff->WriteToSubresource(
+					  0,
+					  nullptr,
+					  img->pixels,
+					  img->rowPitch,
+					  img->slicePitch
+	);
+
+	if (FAILED(result))
+	{
+		return nullptr;
+	}
+
+	return texBuff;
+}
+
 // 面倒だけど書かなあかんやつ
 LRESULT WindowProcedure(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
 	if (msg == WM_DESTROY) // ウィンドウが破棄されたら呼ばれます
@@ -291,7 +410,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 	char signature[3] = {}; // シグネチャ
 	PMDheader pmdheader = {};
-	auto fp = fopen("Content/Model/初音ミク.pmd", "rb");
+	std::string strModelPath = "Content/Model/初音ミク.pmd";
+	auto fp = fopen(strModelPath.c_str(), "rb");
 	
 	fread(signature, sizeof(signature), 1, fp);
 	fread(&pmdheader, sizeof(pmdheader), 1, fp);
@@ -308,7 +428,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	};
 
 #pragma pack(1) // ここから 1 バイトパッキングとなり、アライメントは発生しない
-
 	// PMD マテリアル構造体
 	struct PMDMaterial
 	{
@@ -325,6 +444,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		unsigned int indicesNum; // 子のマテリアルが割り当てられるインデックス数 
 		char texFilePath[20];	 //  テクスチャファイルパス + α
 	};
+#pragma pack()
 
 	// シェーダー側に投げられるマテリアルデータ
 	struct MaterialForHlsl
@@ -373,7 +493,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	fread(indices.data(), indices.size() * sizeof(indices[0]), 1, fp);
 
 	unsigned int materialNum;
-	
+	std::vector<ID3D12Resource*> textureResources(materialNum);
+
 	fread(&materialNum, sizeof(materialNum), 1, fp);
 	
 	std::vector<PMDMaterial> pmdMaterials(materialNum);
@@ -398,17 +519,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		XMFLOAT2 uv;
 	};
 
-	// WIC テクスチャのロード
-	TexMetadata metadata = {};
-	ScratchImage scratchImg = {};
-
-	result = LoadFromWICFile(
-			 L"Content/test.png",
-			 WIC_FLAGS_NONE,
-			 &metadata, scratchImg
-	);
-
-	auto img = scratchImg.GetImage(0, 0, 0); // 生データ抽出
+	
 
 
 
@@ -717,23 +828,21 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		rgba.A = 255;
 	}
 
-	ID3D12Resource* texBuff = nullptr;
+	for ( int i = 0; i < pmdMaterials.size(); ++i)
+	{
+		if (strlen(pmdMaterials[i].texFilePath) == 0)
+		{
+			textureResources[i] = nullptr;
+		}
 
-	result = _dev->CreateCommittedResource(
-				   &CD3DX12_HEAP_PROPERTIES(D3D12_CPU_PAGE_PROPERTY_WRITE_BACK, D3D12_MEMORY_POOL_L0, 0, 0),
-				   D3D12_HEAP_FLAG_NONE,
-				   &CD3DX12_RESOURCE_DESC::Tex2D(metadata.format, metadata.width, metadata.height),
-				   D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
-				   nullptr,
-				   IID_PPV_ARGS(&texBuff));
+		auto texFilePath = GetTexturePathFromModelAndTexPath(
+						   strModelPath,
+						   pmdMaterials[i].texFilePath);
 
-	result = texBuff->WriteToSubresource(
-					  0,
-					  nullptr,
-					  img->pixels,
-					  img->rowPitch,
-					  img->slicePitch
-	);
+		textureResources[i] = LoadTextureFromFile(texFilePath);
+	}
+
+	
 
 	/* 定数バッファー ----------------------------------------*/
 	auto worldMat = XMMatrixRotationY(XM_PIDIV4);
@@ -823,9 +932,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 		angle += 0.01f;
 		worldMat = XMMatrixRotationY(angle);
-//		WVP = worldMat * viewMat * projMat;
-//		*mapMatrix = WVP;
-
 		mapMatrix->world = worldMat;
 		mapMatrix->viewproj = viewMat * projMat;
 
