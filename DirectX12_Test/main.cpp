@@ -575,7 +575,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	fread(&materialNum, sizeof(materialNum), 1, fp);
 
 	std::vector<ID3D12Resource*> textureResources(materialNum);
-
+	std::vector<ID3D12Resource*> sphResources(materialNum);
 	std::vector<PMDMaterial> pmdMaterials(materialNum);
 	
 	fread(pmdMaterials.data(), pmdMaterials.size() * sizeof(PMDMaterial), 1, fp);
@@ -610,13 +610,14 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 			}
 		}
 
+		
+
 		auto texFilePath = GetTexturePathFromModelAndTexPath(
 						   strModelPath,
 						   texFileName.c_str());
 
 		textureResources[i] = LoadTextureFromFile(texFilePath);
 	}
-
 
 	struct Vertex
 	{
@@ -706,7 +707,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 	matDescHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 	matDescHeapDesc.NodeMask = 0;
-	matDescHeapDesc.NumDescriptors = materialNum * 2;
+	matDescHeapDesc.NumDescriptors = materialNum * 3;
 	matDescHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 
 	result = _dev->CreateDescriptorHeap(
@@ -750,7 +751,20 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 				  &srvDesc,
 				  matDescHeapH);
 		}
+		matDescHeapH.ptr += incSize;
 
+		if (sphResources[i] == nullptr)
+		{
+			srvDesc.Format = whiteTex->GetDesc().Format;
+			_dev->CreateShaderResourceView(
+				whiteTex, &srvDesc, matDescHeapH);
+		}
+		else
+		{
+			srvDesc.Format = sphResources[i]->GetDesc().Format;
+			_dev->CreateShaderResourceView(
+				sphResources[i], &srvDesc, matDescHeapH);
+		}
 		matDescHeapH.ptr += incSize;
 	}
 	/*------------------------------------------------------------*/
@@ -888,7 +902,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	descTblRange[1].BaseShaderRegister = 1;
 	descTblRange[1].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
-	descTblRange[2].NumDescriptors = 1;
+	descTblRange[2].NumDescriptors = 2;
 	descTblRange[2].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 	descTblRange[2].BaseShaderRegister = 0;
 	descTblRange[2].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
@@ -1089,7 +1103,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		unsigned int idxOffset = 0;
 
 		auto cbvsrvIncSize = _dev->GetDescriptorHandleIncrementSize(
-								   D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV) * 2;
+								   D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV) * 3;
 
 		for (auto& m : materials)
 		{
