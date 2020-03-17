@@ -8,6 +8,8 @@
 #include <d3dcompiler.h>
 #include <DirectXTex.h>
 #include <d3dx12.h>
+#include <algorithm>
+
 
 #ifdef _DEBUG
 #include<iostream>
@@ -214,6 +216,29 @@ ID3D12Resource* CreateWhiteTexture()
 	);
 
 	return whiteBuff;
+}
+
+// ファイル名から拡張子を取得する
+// @param path 対象のパス文字列
+// @param 拡張子
+std::string GetExtension(const std::string& path)
+{
+	int idx = path.rfind('.');
+	return path.substr(idx + 1, path.length() - idx - 1);
+}
+
+// テクスチャのパスをセパレーター文字で分離する
+// @param path 対象のパス文字列
+// @param splitter 区切り文字
+// @return 分離前後の文字列ペア
+std::pair<std::string, std::string> SplitFileName(
+	const std::string& path, const char splitter = '*') 
+{
+	int idx = path.find(splitter);
+	std::pair<std::string, std::string> ret;
+	ret.first = path.substr(0, idx);
+	ret.second = path.substr(idx + 1, path.length() - idx - 1);
+	return ret;
 }
 
 // 面倒だけど書かなあかんやつ
@@ -463,7 +488,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 	char signature[3] = {}; // シグネチャ
 	PMDheader pmdheader = {};
-	std::string strModelPath = "Content/Model/初音ミク.pmd";
+	std::string strModelPath = "Content/Model/巡音ルカ.pmd";
 	auto fp = fopen(strModelPath.c_str(), "rb");
 	
 	fread(signature, sizeof(signature), 1, fp);
@@ -569,17 +594,29 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 	for (int i = 0; i < pmdMaterials.size(); ++i)
 	{
-		if (strlen(pmdMaterials[i].texFilePath) == 0)
+		std::string texFileName = pmdMaterials[i].texFilePath;
+
+		if (std::count(texFileName.begin(), texFileName.end(), '*') > 0)
 		{
-			textureResources[i] = nullptr;
+			auto namepair = SplitFileName(texFileName);
+			if (GetExtension(namepair.first) == "sph" ||
+				GetExtension(namepair.first) == "spa")
+			{
+				texFileName = namepair.second;
+			}
+			else
+			{
+				texFileName = namepair.first;
+			}
 		}
 
 		auto texFilePath = GetTexturePathFromModelAndTexPath(
-			strModelPath,
-			pmdMaterials[i].texFilePath);
+						   strModelPath,
+						   texFileName.c_str());
 
 		textureResources[i] = LoadTextureFromFile(texFilePath);
 	}
+
 
 	struct Vertex
 	{
