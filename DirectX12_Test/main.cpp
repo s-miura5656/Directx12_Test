@@ -664,6 +664,20 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 				}
 			}
 		}
+		else {
+			if (GetExtension(pmdMaterials[i].texFilePath) == "sph") {
+				sphFileName = pmdMaterials[i].texFilePath;
+				texFileName = "";
+			}
+			else if (GetExtension(pmdMaterials[i].texFilePath) == "spa") {
+				spaFileName = pmdMaterials[i].texFilePath;
+				texFileName = "";
+			}
+			else {
+				texFileName = pmdMaterials[i].texFilePath;
+			}
+		}
+
 
 		if (texFileName != "")
 		{
