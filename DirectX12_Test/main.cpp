@@ -5,6 +5,7 @@
 #include <dxgi1_6.h>
 #include <DirectXMath.h>
 #include <vector>
+#include <map>
 #include <d3dcompiler.h>
 #include <DirectXTex.h>
 #include <d3dx12.h>
@@ -12,7 +13,7 @@
 
 
 #ifdef _DEBUG
-#include<iostream>
+#include <iostream>
 #endif // _DEBUG
 
 #pragma comment(lib,"d3d12.lib")
@@ -91,15 +92,43 @@ std::wstring GetWideStringFromString(const std::string& str)
 	return wstr;
 }
 
+// ファイル名から拡張子を取得する
+// @param path 対象のパス文字列
+// @param 拡張子
+std::string GetExtension(const std::string& path)
+{
+	int idx = path.rfind('.');
+	return path.substr(idx + 1, path.length() - idx - 1);
+}
+
+using LoadLambda_t = std::function<
+	HRESULT(const std::wstring & path, TexMetadata*, ScratchImage&)>;
+
+std::map<std::string, LoadLambda_t> loadLambdaTable;
+
+//ファイル名パスとリソースのマップテーブル
+std::map<std::string, ID3D12Resource*> _resourceTable;
+
 ID3D12Resource* LoadTextureFromFile(std::string& texPath)
 {
+	auto it = _resourceTable.find(texPath);
+
+	if (it != _resourceTable.end()) {
+		//テーブルに内にあったらロードするのではなくマップ内の
+		//リソースを返す
+		return _resourceTable[texPath];
+	}
+
 	// WIC テクスチャのロード
 	TexMetadata metadata = {};
 	ScratchImage scratchImg = {};
 
-	auto result = LoadFromWICFile(
-				  GetWideStringFromString(texPath).c_str(),
-				  WIC_FLAGS_NONE,
+	auto wtexpath = GetWideStringFromString(texPath);
+
+	auto ext = GetExtension(texPath);
+
+	auto result = loadLambdaTable[ext](
+				  wtexpath,
 				  &metadata,
 				  scratchImg);
 
@@ -161,6 +190,8 @@ ID3D12Resource* LoadTextureFromFile(std::string& texPath)
 		return nullptr;
 	}
 
+	_resourceTable[texPath] = texBuff;
+	
 	return texBuff;
 }
 
@@ -259,14 +290,6 @@ ID3D12Resource* CreateBlackTexture()
 	return blackBuff;
 }
 
-// ファイル名から拡張子を取得する
-// @param path 対象のパス文字列
-// @param 拡張子
-std::string GetExtension(const std::string& path)
-{
-	int idx = path.rfind('.');
-	return path.substr(idx + 1, path.length() - idx - 1);
-}
 
 // テクスチャのパスをセパレーター文字で分離する
 // @param path 対象のパス文字列
@@ -335,6 +358,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	// デバッグレイヤーをオンに
 	EnableDebugLayer();
 #endif
+
+	
+
 	// DirectX12まわり初期化
 	// フィーチャレベル列挙
 	D3D_FEATURE_LEVEL levels[] = {
@@ -455,6 +481,28 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		handle.ptr += _dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 	}
 
+	loadLambdaTable["sph"] = loadLambdaTable["bmp"] =
+		loadLambdaTable["png"] = loadLambdaTable["jpg"] =
+		[](const std::wstring& path, TexMetadata* meta, ScratchImage& img)
+		->HRESULT
+	{
+		return LoadFromWICFile(path.c_str(), 0, meta, img);
+	};
+
+	loadLambdaTable["tga"] =
+		[](const std::wstring& path, TexMetadata* meta, ScratchImage& img)
+		->HRESULT
+	{
+		return LoadFromTGAFile(path.c_str(), meta, img);
+	};
+
+	loadLambdaTable["dds"] =
+		[](const std::wstring& path, TexMetadata* meta, ScratchImage& img)
+		->HRESULT
+	{
+		return LoadFromDDSFile(path.c_str(), 0, meta, img);
+	};
+
 	// 深度バッファの作成
 	D3D12_RESOURCE_DESC depthResDesc = {};
 	
@@ -518,6 +566,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	result = _dev->CreateFence(_fenceVal, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&_fence));
 
 	ShowWindow(hwnd, SW_SHOW); // ウィンドウ表示
+
+	
 
 	// PMDヘッダー構造体
 	struct PMDheader
