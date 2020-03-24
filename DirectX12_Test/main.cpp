@@ -529,7 +529,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 	char signature[3] = {}; // シグネチャ
 	PMDheader pmdheader = {};
-	std::string strModelPath = "Content/Model/巡音ルカ.pmd";
+	std::string strModelPath = "Content/Model/初音ミクmetal.pmd";
 	auto fp = fopen(strModelPath.c_str(), "rb");
 	
 	fread(signature, sizeof(signature), 1, fp);
@@ -1044,7 +1044,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 
 	/* 定数バッファー ----------------------------------------*/
-	auto worldMat = XMMatrixRotationY(XM_PIDIV4);
+	auto worldMat = XMMatrixIdentity();
 
 	XMFLOAT3 eye(0, 15, -15);
 	XMFLOAT3 target(0, 15, 0);
@@ -1062,11 +1062,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	/*------------------------------------------------------*/
 
 	// シェーダー側に渡す為の基本的な行列のデータ
-	struct MatricesData
+	struct SceneMatrix
 	{
 		XMMATRIX world;	   // ワールド行列
 		XMMATRIX view;	   // ビュー行列
 		XMMATRIX proj;	   // プロジェクション行列
+		XMFLOAT3 eye;      // 視点座標
 	};
 
 	ID3D12Resource* constBuff = nullptr;
@@ -1074,18 +1075,19 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	result = _dev->CreateCommittedResource(
 				   &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
 				   D3D12_HEAP_FLAG_NONE,
-				   &CD3DX12_RESOURCE_DESC::Buffer((sizeof(MatricesData) + 0xff) & ~0xff),
+				   &CD3DX12_RESOURCE_DESC::Buffer((sizeof(SceneMatrix) + 0xff) & ~0xff),
 				   D3D12_RESOURCE_STATE_GENERIC_READ,
 				   nullptr,
 				   IID_PPV_ARGS(&constBuff));
 
-	MatricesData* mapMatrix = nullptr;
+	SceneMatrix* mapMatrix = nullptr;
 
 	result = constBuff->Map(0, nullptr, (void**)&mapMatrix);
 
 	mapMatrix->world = worldMat;
 	mapMatrix->view  = viewMat;
 	mapMatrix->proj  = projMat;
+	mapMatrix->eye   = eye;
 
 //	*mapMatrix = WVP;
 

@@ -15,6 +15,7 @@ Output BasicVS( float4 pos        : POSITION,
     output.normal  = mul(world, normal); // 法線にもワールド変換を行う
     output.vnormal = mul(view, output.normal);
     output.uv      = uv;
+    output.ray     = normalize(pos.xyz - eye);
     
 	return output;
 }

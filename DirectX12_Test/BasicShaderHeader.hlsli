@@ -9,6 +9,7 @@ cbuffer cbuff0 : register(b0)
     matrix world;
     matrix view;
     matrix proj;
+    float3 eye;
 };
 
 cbuffer Material : register(b1)
@@ -25,4 +26,5 @@ struct Output
     float4 normal  : NORMAL0;     // 法線ベクトル
     float4 vnormal : NORMAL1;     // ビュー変換後の法線ベクトル
     float2 uv      : TEXCOORD;    // uv 値
+    float3 ray     : VECTOR;      // 視線ベクトル
 };
