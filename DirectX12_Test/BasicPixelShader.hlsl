@@ -6,11 +6,15 @@ float4 BasicPS( Output input) : SV_TARGET
     
     float brightness = dot(-light, input.normal.xyz);
     
-    float2 normalUV = (input.normal.xy + float2(1, -1)) * float2(0.5, -0.5);
+    float2 sphereMapUV = input.vnormal.xy;
+    sphereMapUV = (sphereMapUV + float2(1, -1)) * float2(0.5, -0.5);
+    
+    float4 color = tex.Sample(smp, input.uv);
     
     return float4(brightness, brightness, brightness, 1)
                   * diffuse
-                  * tex.Sample(smp, input.uv)
-                  * sph.Sample(smp, normalUV)
-                  + spa.Sample(smp, normalUV);
+                  * color
+                  * sph.Sample(smp, sphereMapUV)
+                  + spa.Sample(smp, sphereMapUV)
+                  + float4(color.rgb * ambient, 1);
 }

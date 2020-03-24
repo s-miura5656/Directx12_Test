@@ -7,7 +7,8 @@ SamplerState smp : register(s0);
 cbuffer cbuff0 : register(b0)
 {
     matrix world;
-    matrix viewproj;
+    matrix view;
+    matrix proj;
 };
 
 cbuffer Material : register(b1)
@@ -19,7 +20,9 @@ cbuffer Material : register(b1)
 
 struct Output
 {
-    float4 svpos  : SV_POSITION; // システム用頂点座標
-    float4 normal : NORMAL;
-    float2 uv     : TEXCOORD;
+    float4 svpos   : SV_POSITION; // システム用頂点座標
+    float4 pos     : POSITION;    // 頂点座標
+    float4 normal  : NORMAL0;     // 法線ベクトル
+    float4 vnormal : NORMAL1;     // ビュー変換後の法線ベクトル
+    float2 uv      : TEXCOORD;    // uv 値
 };

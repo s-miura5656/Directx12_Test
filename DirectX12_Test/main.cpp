@@ -1046,26 +1046,27 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	/* 定数バッファー ----------------------------------------*/
 	auto worldMat = XMMatrixRotationY(XM_PIDIV4);
 
-	XMFLOAT3 eye(0, 15, -10);
-	XMFLOAT3 target(0, 13, 0);
+	XMFLOAT3 eye(0, 15, -15);
+	XMFLOAT3 target(0, 15, 0);
 	XMFLOAT3 up(0, 1, 0);
 
 	auto viewMat = XMMatrixLookAtLH(XMLoadFloat3(&eye), XMLoadFloat3(&target), XMLoadFloat3(&up));
 
 	auto projMat = XMMatrixPerspectiveFovLH(
-				   XM_PIDIV2, // 画角 90°
+				   XM_PIDIV4, // 画角 45°
 				   static_cast<float>(window_width) / static_cast<float>(window_height), // アスペクト比
 				   1.0f,    // 近いほう
 				   100.0f); // 遠いほう
 
-	auto WVP = worldMat * viewMat * projMat;
+//	auto WVP = worldMat * viewMat * projMat;
 	/*------------------------------------------------------*/
 
 	// シェーダー側に渡す為の基本的な行列のデータ
 	struct MatricesData
 	{
-		XMMATRIX world;	   // モデル本体を回転させたり移動させたりする行列
-		XMMATRIX viewproj; // ビューとプロジェクションの合成行列
+		XMMATRIX world;	   // ワールド行列
+		XMMATRIX view;	   // ビュー行列
+		XMMATRIX proj;	   // プロジェクション行列
 	};
 
 	ID3D12Resource* constBuff = nullptr;
@@ -1083,7 +1084,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	result = constBuff->Map(0, nullptr, (void**)&mapMatrix);
 
 	mapMatrix->world = worldMat;
-	mapMatrix->viewproj = viewMat * projMat;
+	mapMatrix->view  = viewMat;
+	mapMatrix->proj  = projMat;
 
 //	*mapMatrix = WVP;
 
@@ -1125,7 +1127,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 //		angle += 0.01f;
 		worldMat = XMMatrixRotationY(angle);
 		mapMatrix->world = worldMat;
-		mapMatrix->viewproj = viewMat * projMat;
+		mapMatrix->view  = viewMat;
+		mapMatrix->proj  = projMat;
 
 		// DirectX処理
 		// バックバッファのインデックスを取得
