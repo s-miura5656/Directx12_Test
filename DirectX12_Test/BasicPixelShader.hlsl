@@ -4,7 +4,25 @@ float4 BasicPS( Output input) : SV_TARGET
 {
     float3 light = normalize(float3(1, -1, 1));
     
-    float brightness = dot(-light, input.normal.xyz);
+    // ディフューズ計算
+    float diffuseB = saturate(dot(-light, input.normal.xyz));
     
-    return float4(brightness, brightness, brightness, 1);
+    // 光の反射ベクトル
+    float3 refLight = normalize(reflect(light, input.normal.xyz));
+    float specularB = pow(saturate(dot(refLight, -input.ray)), specular.a);
+    
+    // スフィアマップ用UV計算
+    float2 sphereMapUV = input.vnormal.xy;
+    sphereMapUV = (sphereMapUV + float2(1, -1)) * float2(0.5, -0.5);
+    
+    float4 texColor = tex.Sample(smp, input.uv);
+    
+    return max(diffuseB
+             * diffuse
+             * texColor
+             * sph.Sample(smp, sphereMapUV)
+             + saturate(spa.Sample(smp, sphereMapUV) * texColor
+             + float4(specularB * specular.rgb, 1)),
+               float4(texColor.rgb * (ambient * 0.2), 1));
+
 }
