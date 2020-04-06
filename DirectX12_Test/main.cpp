@@ -140,13 +140,8 @@ ID3D12Resource* LoadTextureFromFile(std::string& texPath)
 	auto img = scratchImg.GetImage(0, 0, 0);
 
 	// WriteToSubresource で転送する用のヒープ設定
-	D3D12_HEAP_PROPERTIES texHeapProp = {};
-
-	texHeapProp.Type = D3D12_HEAP_TYPE_CUSTOM;
-	texHeapProp.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;
-	texHeapProp.MemoryPoolPreference = D3D12_MEMORY_POOL_L0;
-	texHeapProp.CreationNodeMask = 0;
-	texHeapProp.VisibleNodeMask = 0;
+	auto texHeapProp = CD3DX12_HEAP_PROPERTIES(D3D12_CPU_PAGE_PROPERTY_WRITE_BACK, 
+		                                       D3D12_MEMORY_POOL_L0);
 
 	D3D12_RESOURCE_DESC resDesc = {};
 
@@ -198,26 +193,10 @@ ID3D12Resource* LoadTextureFromFile(std::string& texPath)
 ID3D12Resource* CreateWhiteTexture()
 {
 	// WriteToSubresource で転送する用のヒープ設定
-	D3D12_HEAP_PROPERTIES texHeapProp = {};
+	auto texHeapProp = CD3DX12_HEAP_PROPERTIES(D3D12_CPU_PAGE_PROPERTY_WRITE_BACK,
+											   D3D12_MEMORY_POOL_L0);
 
-	texHeapProp.Type = D3D12_HEAP_TYPE_CUSTOM;
-	texHeapProp.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;
-	texHeapProp.MemoryPoolPreference = D3D12_MEMORY_POOL_L0;
-	texHeapProp.CreationNodeMask = 0;
-	texHeapProp.VisibleNodeMask = 0;
-
-	D3D12_RESOURCE_DESC resDesc = {};
-
-	resDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-	resDesc.Width = 4;
-	resDesc.Height = 4;
-	resDesc.DepthOrArraySize = 1;
-	resDesc.SampleDesc.Count = 1;
-	resDesc.SampleDesc.Quality = 0;
-	resDesc.MipLevels = 1;
-	resDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-	resDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
-	resDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
+	auto resDesc = CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_R8G8B8A8_UNORM, 4, 4, 1, 1, 1, 0);
 
 	// バッファー作成
 	ID3D12Resource* whiteBuff = nullptr;
@@ -246,26 +225,10 @@ ID3D12Resource* CreateWhiteTexture()
 ID3D12Resource* CreateBlackTexture()
 {
 	// WriteToSubresource で転送する用のヒープ設定
-	D3D12_HEAP_PROPERTIES texHeapProp = {};
+	auto texHeapProp = CD3DX12_HEAP_PROPERTIES(D3D12_CPU_PAGE_PROPERTY_WRITE_BACK,
+											   D3D12_MEMORY_POOL_L0);
 
-	texHeapProp.Type = D3D12_HEAP_TYPE_CUSTOM;
-	texHeapProp.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;
-	texHeapProp.MemoryPoolPreference = D3D12_MEMORY_POOL_L0;
-	texHeapProp.CreationNodeMask = 0;
-	texHeapProp.VisibleNodeMask = 0;
-
-	D3D12_RESOURCE_DESC resDesc = {};
-
-	resDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-	resDesc.Width = 4;
-	resDesc.Height = 4;
-	resDesc.DepthOrArraySize = 1;
-	resDesc.SampleDesc.Count = 1;
-	resDesc.SampleDesc.Quality = 0;
-	resDesc.MipLevels = 1;
-	resDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-	resDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
-	resDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
+	auto resDesc = CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_R8G8B8A8_UNORM, 4, 4, 1, 1, 1, 0);
 
 	// バッファー作成
 	ID3D12Resource* blackBuff = nullptr;
