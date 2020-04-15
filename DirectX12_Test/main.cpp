@@ -962,10 +962,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 	ID3DBlob* errorBlob = nullptr;
 
-	result = D3DCompileFromFile(L"BasicVertexShader.hlsl",
+	result = D3DCompileFromFile(L"Shader/BaseVertexShader.hlsl",
 								nullptr,
 								D3D_COMPILE_STANDARD_FILE_INCLUDE,
-								"BasicVS", "vs_5_0",
+								"BaseVS", "vs_5_0",
 								D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION,
 								0, &_vsBlob, &errorBlob);
 
@@ -988,10 +988,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		}
 	}
 
-	result = D3DCompileFromFile(L"BasicPixelShader.hlsl",
+	result = D3DCompileFromFile(L"Shader/BasePixelShader.hlsl",
 								nullptr,
 								D3D_COMPILE_STANDARD_FILE_INCLUDE,
-								"BasicPS", "ps_5_0",
+								"BasePS", "ps_5_0",
 								D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION,
 								0, &_psBlob, &errorBlob);
 
