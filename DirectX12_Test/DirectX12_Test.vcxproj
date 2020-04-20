@@ -142,7 +142,11 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Application\Application.cpp" />
+    <ClCompile Include="Dx12Wrapper\Dx12Wrapper.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="PMD\PMDActor.cpp" />
+    <ClCompile Include="PMD\PMDRenderer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Shader\BasePixelShader.hlsl">
@@ -164,6 +168,12 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Shader\BaseShaderHeader.hlsli" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Application\Application.h" />
+    <ClInclude Include="Dx12Wrapper\Dx12Wrapper.h" />
+    <ClInclude Include="PMD\PMDActor.h" />
+    <ClInclude Include="PMD\PMDRenderer.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
