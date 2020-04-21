@@ -13,17 +13,61 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="Shader">
+      <UniqueIdentifier>{35b38cbc-85b4-434b-a0ba-8829bd896681}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Application">
+      <UniqueIdentifier>{10289bc3-2493-424d-a19f-ad2f4634fa83}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Dx12Wrapper">
+      <UniqueIdentifier>{866dcd8e-58e6-4d72-b3a3-f252ffc6af89}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="PMD">
+      <UniqueIdentifier>{90dcbe89-30de-4f69-abc6-eeb2b2964a93}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
+    <ClCompile Include="Dx12Wrapper\Dx12Wrapper.cpp">
+      <Filter>Dx12Wrapper</Filter>
+    </ClCompile>
+    <ClCompile Include="Application\Application.cpp">
+      <Filter>Application</Filter>
+    </ClCompile>
+    <ClCompile Include="PMD\PMDActor.cpp">
+      <Filter>PMD</Filter>
+    </ClCompile>
+    <ClCompile Include="PMD\PMDRenderer.cpp">
+      <Filter>PMD</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="BasicVertexShader.hlsl" />
-    <FxCompile Include="BasicPixelShader.hlsl" />
+    <FxCompile Include="Shader\BasePixelShader.hlsl">
+      <Filter>Shader</Filter>
+    </FxCompile>
+    <FxCompile Include="Shader\BaseVertexShader.hlsl">
+      <Filter>Shader</Filter>
+    </FxCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="BasicShaderHeader.hlsli" />
+    <None Include="Shader\BaseShaderHeader.hlsli">
+      <Filter>Shader</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Dx12Wrapper\Dx12Wrapper.h">
+      <Filter>Dx12Wrapper</Filter>
+    </ClInclude>
+    <ClInclude Include="Application\Application.h">
+      <Filter>Application</Filter>
+    </ClInclude>
+    <ClInclude Include="PMD\PMDActor.h">
+      <Filter>PMD</Filter>
+    </ClInclude>
+    <ClInclude Include="PMD\PMDRenderer.h">
+      <Filter>PMD</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
