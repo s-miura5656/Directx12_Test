@@ -1,352 +1,352 @@
 #include "Application/Application.h"
-
-//ウィンドウ表示＆DirectX初期化
-#include <Windows.h>
-#include <tchar.h>
-#include <d3d12.h>
-#include <dxgi1_6.h>
-#include <DirectXMath.h>
-#include <vector>
-#include <map>
-#include <d3dcompiler.h>
-#include <DirectXTex.h>
-#include <d3dx12.h>
-#include <algorithm>
-
-
-#ifdef _DEBUG
-#include <iostream>
-#endif // _DEBUG
-
-#pragma comment(lib,"d3d12.lib")
-#pragma comment(lib,"dxgi.lib")
-#pragma comment(lib,"d3dcompiler.lib")
-#pragma comment(lib,"DirectXTex.lib")
-
-using namespace DirectX;
-
-const unsigned int window_width = 1280;
-const unsigned int window_height = 720;
-
-IDXGIFactory6* _dxgiFactory = nullptr;
-ID3D12Device* _dev = nullptr;
-ID3D12CommandAllocator* _cmdAllocator = nullptr;
-ID3D12GraphicsCommandList* _cmdList = nullptr;
-ID3D12CommandQueue* _cmdQueue = nullptr;
-IDXGISwapChain4* _swapchain = nullptr;
-
-///@brief コンソール画面にフォーマット付き文字列を表示
-///@param format フォーマット(%dとか%fとかの)
-///@param 可変長引数
-///@remarksこの関数はデバッグ用です。デバッグ時にしか動作しません
-void DebugOutputFormatString(const char* format, ...) {
-#ifdef _DEBUG
-	va_list valist;
-	va_start(valist, format);
-	vprintf(format, valist);
-	va_end(valist);
-#endif // _DEBUG
-}
-
-// モデルのパスとテクスチャのパスから合成パスを得る
-// @param modelPath アプリケーションから見た pmd モデルのパス
-// @param texPath PMD モデルから見たテクスチャのパス
-// @return アプリケーションから見たテクスチャのパス
-std::string GetTexturePathFromModelAndTexPath(
-			const std::string& modelPath,
-			const char* texPath)
-{
-	int pathIndex1 = modelPath.rfind('/');
-	int pathIndex2 = modelPath.rfind('\\');
-	auto pathIndex = max(pathIndex1, pathIndex2);
-	auto folderPath = modelPath.substr(0, pathIndex + 1);
-	
-	return folderPath + texPath;
-}
-
-// std::string ( マルチバイト文字列 ) からstd::wstring ( ワイド文字列 )　を得る
-// @param str マルチバイト文字列
-// @return 変換されたワイド文字列
-std::wstring GetWideStringFromString(const std::string& str)
-{
-	// 呼び出し一回目 ( 文字列数を得る )
-	auto num1 = MultiByteToWideChar(
-				CP_ACP,
-				MB_PRECOMPOSED | MB_ERR_INVALID_CHARS,
-				str.c_str(),
-				-1,
-				nullptr,
-				0);
-
-	std::wstring wstr;
-	wstr.resize(num1);
-
-	auto num2 = MultiByteToWideChar(
-				CP_ACP,
-				MB_PRECOMPOSED | MB_ERR_INVALID_CHARS,
-				str.c_str(),
-				-1,
-				&wstr[0],
-				num1);
-
-	assert(num1 == num2);
-	
-	return wstr;
-}
-
-// ファイル名から拡張子を取得する
-// @param path 対象のパス文字列
-// @param 拡張子
-std::string GetExtension(const std::string& path)
-{
-	int idx = path.rfind('.');
-	return path.substr(idx + 1, path.length() - idx - 1);
-}
-
-using LoadLambda_t = std::function<
-	HRESULT(const std::wstring & path, TexMetadata*, ScratchImage&)>;
-
-std::map<std::string, LoadLambda_t> loadLambdaTable;
-
-//ファイル名パスとリソースのマップテーブル
-std::map<std::string, ID3D12Resource*> _resourceTable;
-
-ID3D12Resource* LoadTextureFromFile(std::string& texPath)
-{
-	auto it = _resourceTable.find(texPath);
-
-	if (it != _resourceTable.end()) {
-		//テーブルに内にあったらロードするのではなくマップ内の
-		//リソースを返す
-		return _resourceTable[texPath];
-	}
-
-	// WIC テクスチャのロード
-	TexMetadata metadata = {};
-	ScratchImage scratchImg = {};
-
-	auto wtexpath = GetWideStringFromString(texPath);
-
-	auto ext = GetExtension(texPath);
-
-	auto result = loadLambdaTable[ext](
-				  wtexpath,
-				  &metadata,
-				  scratchImg);
-
-	if (FAILED(result))
-	{
-		return nullptr;
-	}
-
-	auto img = scratchImg.GetImage(0, 0, 0);
-
-	// WriteToSubresource で転送する用のヒープ設定
-	auto texHeapProp = CD3DX12_HEAP_PROPERTIES(D3D12_CPU_PAGE_PROPERTY_WRITE_BACK, 
-		                                       D3D12_MEMORY_POOL_L0);
-
-	D3D12_RESOURCE_DESC resDesc = {};
-
-	resDesc.Format = metadata.format;
-	resDesc.Width = metadata.width;
-	resDesc.Height = metadata.height;
-	resDesc.DepthOrArraySize = metadata.arraySize;
-	resDesc.SampleDesc.Count = 1;
-	resDesc.SampleDesc.Quality = 0;
-	resDesc.MipLevels = metadata.mipLevels;
-	resDesc.Dimension = static_cast<D3D12_RESOURCE_DIMENSION>(metadata.dimension);
-	resDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
-	resDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
-
-	// バッファー作成
-	ID3D12Resource* texBuff = nullptr;
-
-	result = _dev->CreateCommittedResource(
-			 &texHeapProp,
-			 D3D12_HEAP_FLAG_NONE,
-			 &resDesc,
-			 D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
-			 nullptr,
-			 IID_PPV_ARGS(&texBuff));
-
-	if (FAILED(result))
-	{
-		return nullptr;
-	}
-
-	result = texBuff->WriteToSubresource(
-					  0,
-					  nullptr,
-					  img->pixels,
-					  img->rowPitch,
-					  img->slicePitch
-	);
-
-	if (FAILED(result))
-	{
-		return nullptr;
-	}
-
-	_resourceTable[texPath] = texBuff;
-	
-	return texBuff;
-}
-
-ID3D12Resource* CreateWhiteTexture()
-{
-	// WriteToSubresource で転送する用のヒープ設定
-	auto texHeapProp = CD3DX12_HEAP_PROPERTIES(D3D12_CPU_PAGE_PROPERTY_WRITE_BACK,
-											   D3D12_MEMORY_POOL_L0);
-
-	auto resDesc = CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_R8G8B8A8_UNORM, 4, 4, 1, 1, 1, 0);
-
-	// バッファー作成
-	ID3D12Resource* whiteBuff = nullptr;
-
-	auto result = _dev->CreateCommittedResource(
-						&texHeapProp,
-						D3D12_HEAP_FLAG_NONE,
-						&resDesc,
-						D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
-						nullptr,
-						IID_PPV_ARGS(&whiteBuff));
-
-	if (FAILED(result))
-	{
-		return nullptr;
-	}
-
-	std::vector<unsigned char> data(4 * 4 * 4);
-	std::fill(data.begin(), data.end(), 0xff);
-
-	result = whiteBuff->WriteToSubresource(0, nullptr, data.data(), 4 * 4, data.size());
-
-	return whiteBuff;
-}
-
-ID3D12Resource* CreateBlackTexture()
-{
-	// WriteToSubresource で転送する用のヒープ設定
-	auto texHeapProp = CD3DX12_HEAP_PROPERTIES(D3D12_CPU_PAGE_PROPERTY_WRITE_BACK,
-											   D3D12_MEMORY_POOL_L0);
-
-	auto resDesc = CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_R8G8B8A8_UNORM, 4, 4, 1, 1, 1, 0);
-
-	// バッファー作成
-	ID3D12Resource* blackBuff = nullptr;
-
-	auto result = _dev->CreateCommittedResource(
-						&texHeapProp,
-						D3D12_HEAP_FLAG_NONE,
-						&resDesc,
-						D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
-						nullptr,
-						IID_PPV_ARGS(&blackBuff));
-
-	if (FAILED(result))
-		return nullptr;
-	
-
-	std::vector<unsigned char> data(4 * 4 * 4);
-	std::fill(data.begin(), data.end(), 0x00);
-
-	result = blackBuff->WriteToSubresource(0, nullptr, data.data(), 4 * 4, data.size());
-
-	return blackBuff;
-}
-
-ID3D12Resource* CreateGrayGradationTexture() 
-{
-	D3D12_RESOURCE_DESC resDesc = {};
-	resDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-	resDesc.Width = 4;
-	resDesc.Height = 256;
-	resDesc.DepthOrArraySize = 1;
-	resDesc.SampleDesc.Count = 1;
-	resDesc.SampleDesc.Quality = 0;
-	resDesc.MipLevels = 1;
-	resDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-	resDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;//レイアウトについては決定しない
-	resDesc.Flags = D3D12_RESOURCE_FLAG_NONE;//とくにフラグなし
-
-
-	D3D12_HEAP_PROPERTIES texHeapProp = {};
-	texHeapProp.Type = D3D12_HEAP_TYPE_CUSTOM;//特殊な設定なのでdefaultでもuploadでもなく
-	texHeapProp.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;//ライトバックで
-	texHeapProp.MemoryPoolPreference = D3D12_MEMORY_POOL_L0;//転送がL0つまりCPU側から直で
-	texHeapProp.CreationNodeMask = 0;//単一アダプタのため0
-	texHeapProp.VisibleNodeMask = 0;//単一アダプタのため0
-
-	ID3D12Resource* gradBuff = nullptr;
-	auto result = _dev->CreateCommittedResource(
-						&texHeapProp,
-						D3D12_HEAP_FLAG_NONE,//特に指定なし
-						&resDesc,
-						D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
-						nullptr,
-						IID_PPV_ARGS(&gradBuff)
-	);
-
-	if (FAILED(result)) {
-		return nullptr;
-	}
-
-	// 上が白くて下が黒いテクスチャデータを作成
-	std::vector<unsigned int> data(4 * 256);
-	
-	auto it = data.begin();
-	
-	unsigned int c = 0xff;
-
-	for (; it != data.end(); it += 4)
-	{
-		auto col = (c << 0xff) | (c << 16) | (c << 8) | c;
-		std::fill(it, it + 4, col);
-		--c;
-	}
-
-	result = gradBuff->WriteToSubresource(
-					   0,
-					   nullptr,
-					   data.data(),
-					   4 * sizeof(unsigned int),
-					   sizeof(unsigned int) * data.size());
-
-	return gradBuff;
-}
-
-
-// テクスチャのパスをセパレーター文字で分離する
-// @param path 対象のパス文字列
-// @param splitter 区切り文字
-// @return 分離前後の文字列ペア
-std::pair<std::string, std::string> SplitFileName(
-	const std::string& path, const char splitter = '*') 
-{
-	int idx = path.find(splitter);
-	std::pair<std::string, std::string> ret;
-	ret.first = path.substr(0, idx);
-	ret.second = path.substr(idx + 1, path.length() - idx - 1);
-	return ret;
-}
-
-// 面倒だけど書かなあかんやつ
-LRESULT WindowProcedure(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
-	if (msg == WM_DESTROY) // ウィンドウが破棄されたら呼ばれます
-	{
-		PostQuitMessage(0); // OSに対して「もうこのアプリは終わるんや」と伝える
-		return 0;
-	}
-	return DefWindowProc(hwnd, msg, wparam, lparam); // 規定の処理を行う
-}
-
-void EnableDebugLayer() {
-	ID3D12Debug* debugLayer = nullptr;
-	if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugLayer)))) {
-		debugLayer->EnableDebugLayer();
-		debugLayer->Release();
-	}
-}
+//
+////ウィンドウ表示＆DirectX初期化
+//#include <Windows.h>
+//#include <tchar.h>
+//#include <d3d12.h>
+//#include <dxgi1_6.h>
+//#include <DirectXMath.h>
+//#include <vector>
+//#include <map>
+//#include <d3dcompiler.h>
+//#include <DirectXTex.h>
+//#include <d3dx12.h>
+//#include <algorithm>
+//
+//
+//#ifdef _DEBUG
+//#include <iostream>
+//#endif // _DEBUG
+//
+//#pragma comment(lib,"d3d12.lib")
+//#pragma comment(lib,"dxgi.lib")
+//#pragma comment(lib,"d3dcompiler.lib")
+//#pragma comment(lib,"DirectXTex.lib")
+//
+//using namespace DirectX;
+//
+//const unsigned int window_width = 1280;
+//const unsigned int window_height = 720;
+//
+//IDXGIFactory6* _dxgiFactory = nullptr;
+//ID3D12Device* _dev = nullptr;
+//ID3D12CommandAllocator* _cmdAllocator = nullptr;
+//ID3D12GraphicsCommandList* _cmdList = nullptr;
+//ID3D12CommandQueue* _cmdQueue = nullptr;
+//IDXGISwapChain4* _swapchain = nullptr;
+//
+/////@brief コンソール画面にフォーマット付き文字列を表示
+/////@param format フォーマット(%dとか%fとかの)
+/////@param 可変長引数
+/////@remarksこの関数はデバッグ用です。デバッグ時にしか動作しません
+//void DebugOutputFormatString(const char* format, ...) {
+//#ifdef _DEBUG
+//	va_list valist;
+//	va_start(valist, format);
+//	vprintf(format, valist);
+//	va_end(valist);
+//#endif // _DEBUG
+//}
+//
+//// モデルのパスとテクスチャのパスから合成パスを得る
+//// @param modelPath アプリケーションから見た pmd モデルのパス
+//// @param texPath PMD モデルから見たテクスチャのパス
+//// @return アプリケーションから見たテクスチャのパス
+//std::string GetTexturePathFromModelAndTexPath(
+//			const std::string& modelPath,
+//			const char* texPath)
+//{
+//	int pathIndex1 = modelPath.rfind('/');
+//	int pathIndex2 = modelPath.rfind('\\');
+//	auto pathIndex = max(pathIndex1, pathIndex2);
+//	auto folderPath = modelPath.substr(0, pathIndex + 1);
+//	
+//	return folderPath + texPath;
+//}
+//
+//// std::string ( マルチバイト文字列 ) からstd::wstring ( ワイド文字列 )　を得る
+//// @param str マルチバイト文字列
+//// @return 変換されたワイド文字列
+//std::wstring GetWideStringFromString(const std::string& str)
+//{
+//	// 呼び出し一回目 ( 文字列数を得る )
+//	auto num1 = MultiByteToWideChar(
+//				CP_ACP,
+//				MB_PRECOMPOSED | MB_ERR_INVALID_CHARS,
+//				str.c_str(),
+//				-1,
+//				nullptr,
+//				0);
+//
+//	std::wstring wstr;
+//	wstr.resize(num1);
+//
+//	auto num2 = MultiByteToWideChar(
+//				CP_ACP,
+//				MB_PRECOMPOSED | MB_ERR_INVALID_CHARS,
+//				str.c_str(),
+//				-1,
+//				&wstr[0],
+//				num1);
+//
+//	assert(num1 == num2);
+//	
+//	return wstr;
+//}
+//
+//// ファイル名から拡張子を取得する
+//// @param path 対象のパス文字列
+//// @param 拡張子
+//std::string GetExtension(const std::string& path)
+//{
+//	int idx = path.rfind('.');
+//	return path.substr(idx + 1, path.length() - idx - 1);
+//}
+//
+//using LoadLambda_t = std::function<
+//	HRESULT(const std::wstring & path, TexMetadata*, ScratchImage&)>;
+//
+//std::map<std::string, LoadLambda_t> loadLambdaTable;
+//
+////ファイル名パスとリソースのマップテーブル
+//std::map<std::string, ID3D12Resource*> _resourceTable;
+//
+//ID3D12Resource* LoadTextureFromFile(std::string& texPath)
+//{
+//	auto it = _resourceTable.find(texPath);
+//
+//	if (it != _resourceTable.end()) {
+//		//テーブルに内にあったらロードするのではなくマップ内の
+//		//リソースを返す
+//		return _resourceTable[texPath];
+//	}
+//
+//	// WIC テクスチャのロード
+//	TexMetadata metadata = {};
+//	ScratchImage scratchImg = {};
+//
+//	auto wtexpath = GetWideStringFromString(texPath);
+//
+//	auto ext = GetExtension(texPath);
+//
+//	auto result = loadLambdaTable[ext](
+//				  wtexpath,
+//				  &metadata,
+//				  scratchImg);
+//
+//	if (FAILED(result))
+//	{
+//		return nullptr;
+//	}
+//
+//	auto img = scratchImg.GetImage(0, 0, 0);
+//
+//	// WriteToSubresource で転送する用のヒープ設定
+//	auto texHeapProp = CD3DX12_HEAP_PROPERTIES(D3D12_CPU_PAGE_PROPERTY_WRITE_BACK, 
+//		                                       D3D12_MEMORY_POOL_L0);
+//
+//	D3D12_RESOURCE_DESC resDesc = {};
+//
+//	resDesc.Format = metadata.format;
+//	resDesc.Width = metadata.width;
+//	resDesc.Height = metadata.height;
+//	resDesc.DepthOrArraySize = metadata.arraySize;
+//	resDesc.SampleDesc.Count = 1;
+//	resDesc.SampleDesc.Quality = 0;
+//	resDesc.MipLevels = metadata.mipLevels;
+//	resDesc.Dimension = static_cast<D3D12_RESOURCE_DIMENSION>(metadata.dimension);
+//	resDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+//	resDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
+//
+//	// バッファー作成
+//	ID3D12Resource* texBuff = nullptr;
+//
+//	result = _dev->CreateCommittedResource(
+//			 &texHeapProp,
+//			 D3D12_HEAP_FLAG_NONE,
+//			 &resDesc,
+//			 D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+//			 nullptr,
+//			 IID_PPV_ARGS(&texBuff));
+//
+//	if (FAILED(result))
+//	{
+//		return nullptr;
+//	}
+//
+//	result = texBuff->WriteToSubresource(
+//					  0,
+//					  nullptr,
+//					  img->pixels,
+//					  img->rowPitch,
+//					  img->slicePitch
+//	);
+//
+//	if (FAILED(result))
+//	{
+//		return nullptr;
+//	}
+//
+//	_resourceTable[texPath] = texBuff;
+//	
+//	return texBuff;
+//}
+//
+//ID3D12Resource* CreateWhiteTexture()
+//{
+//	// WriteToSubresource で転送する用のヒープ設定
+//	auto texHeapProp = CD3DX12_HEAP_PROPERTIES(D3D12_CPU_PAGE_PROPERTY_WRITE_BACK,
+//											   D3D12_MEMORY_POOL_L0);
+//
+//	auto resDesc = CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_R8G8B8A8_UNORM, 4, 4, 1, 1, 1, 0);
+//
+//	// バッファー作成
+//	ID3D12Resource* whiteBuff = nullptr;
+//
+//	auto result = _dev->CreateCommittedResource(
+//						&texHeapProp,
+//						D3D12_HEAP_FLAG_NONE,
+//						&resDesc,
+//						D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+//						nullptr,
+//						IID_PPV_ARGS(&whiteBuff));
+//
+//	if (FAILED(result))
+//	{
+//		return nullptr;
+//	}
+//
+//	std::vector<unsigned char> data(4 * 4 * 4);
+//	std::fill(data.begin(), data.end(), 0xff);
+//
+//	result = whiteBuff->WriteToSubresource(0, nullptr, data.data(), 4 * 4, data.size());
+//
+//	return whiteBuff;
+//}
+//
+//ID3D12Resource* CreateBlackTexture()
+//{
+//	// WriteToSubresource で転送する用のヒープ設定
+//	auto texHeapProp = CD3DX12_HEAP_PROPERTIES(D3D12_CPU_PAGE_PROPERTY_WRITE_BACK,
+//											   D3D12_MEMORY_POOL_L0);
+//
+//	auto resDesc = CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_R8G8B8A8_UNORM, 4, 4, 1, 1, 1, 0);
+//
+//	// バッファー作成
+//	ID3D12Resource* blackBuff = nullptr;
+//
+//	auto result = _dev->CreateCommittedResource(
+//						&texHeapProp,
+//						D3D12_HEAP_FLAG_NONE,
+//						&resDesc,
+//						D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+//						nullptr,
+//						IID_PPV_ARGS(&blackBuff));
+//
+//	if (FAILED(result))
+//		return nullptr;
+//	
+//
+//	std::vector<unsigned char> data(4 * 4 * 4);
+//	std::fill(data.begin(), data.end(), 0x00);
+//
+//	result = blackBuff->WriteToSubresource(0, nullptr, data.data(), 4 * 4, data.size());
+//
+//	return blackBuff;
+//}
+//
+//ID3D12Resource* CreateGrayGradationTexture() 
+//{
+//	D3D12_RESOURCE_DESC resDesc = {};
+//	resDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+//	resDesc.Width = 4;
+//	resDesc.Height = 256;
+//	resDesc.DepthOrArraySize = 1;
+//	resDesc.SampleDesc.Count = 1;
+//	resDesc.SampleDesc.Quality = 0;
+//	resDesc.MipLevels = 1;
+//	resDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+//	resDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;//レイアウトについては決定しない
+//	resDesc.Flags = D3D12_RESOURCE_FLAG_NONE;//とくにフラグなし
+//
+//
+//	D3D12_HEAP_PROPERTIES texHeapProp = {};
+//	texHeapProp.Type = D3D12_HEAP_TYPE_CUSTOM;//特殊な設定なのでdefaultでもuploadでもなく
+//	texHeapProp.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;//ライトバックで
+//	texHeapProp.MemoryPoolPreference = D3D12_MEMORY_POOL_L0;//転送がL0つまりCPU側から直で
+//	texHeapProp.CreationNodeMask = 0;//単一アダプタのため0
+//	texHeapProp.VisibleNodeMask = 0;//単一アダプタのため0
+//
+//	ID3D12Resource* gradBuff = nullptr;
+//	auto result = _dev->CreateCommittedResource(
+//						&texHeapProp,
+//						D3D12_HEAP_FLAG_NONE,//特に指定なし
+//						&resDesc,
+//						D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+//						nullptr,
+//						IID_PPV_ARGS(&gradBuff)
+//	);
+//
+//	if (FAILED(result)) {
+//		return nullptr;
+//	}
+//
+//	// 上が白くて下が黒いテクスチャデータを作成
+//	std::vector<unsigned int> data(4 * 256);
+//	
+//	auto it = data.begin();
+//	
+//	unsigned int c = 0xff;
+//
+//	for (; it != data.end(); it += 4)
+//	{
+//		auto col = (c << 0xff) | (c << 16) | (c << 8) | c;
+//		std::fill(it, it + 4, col);
+//		--c;
+//	}
+//
+//	result = gradBuff->WriteToSubresource(
+//					   0,
+//					   nullptr,
+//					   data.data(),
+//					   4 * sizeof(unsigned int),
+//					   sizeof(unsigned int) * data.size());
+//
+//	return gradBuff;
+//}
+//
+//
+//// テクスチャのパスをセパレーター文字で分離する
+//// @param path 対象のパス文字列
+//// @param splitter 区切り文字
+//// @return 分離前後の文字列ペア
+//std::pair<std::string, std::string> SplitFileName(
+//	const std::string& path, const char splitter = '*') 
+//{
+//	int idx = path.find(splitter);
+//	std::pair<std::string, std::string> ret;
+//	ret.first = path.substr(0, idx);
+//	ret.second = path.substr(idx + 1, path.length() - idx - 1);
+//	return ret;
+//}
+//
+//// 面倒だけど書かなあかんやつ
+//LRESULT WindowProcedure(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
+//	if (msg == WM_DESTROY) // ウィンドウが破棄されたら呼ばれます
+//	{
+//		PostQuitMessage(0); // OSに対して「もうこのアプリは終わるんや」と伝える
+//		return 0;
+//	}
+//	return DefWindowProc(hwnd, msg, wparam, lparam); // 規定の処理を行う
+//}
+//
+//void EnableDebugLayer() {
+//	ID3D12Debug* debugLayer = nullptr;
+//	if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugLayer)))) {
+//		debugLayer->EnableDebugLayer();
+//		debugLayer->Release();
+//	}
+//}
 
 #ifdef _DEBUG
 int main() {
