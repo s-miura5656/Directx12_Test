@@ -1,34 +1,161 @@
 #pragma once
-#include<Windows.h>
-#include<tchar.h>
-#include<d3d12.h>
-#include<dxgi1_6.h>
-#include<DirectXMath.h>
-#include<vector>
-#include<map>
-#include<d3dcompiler.h>
-#include<DirectXTex.h>
-#include<d3dx12.h>
-#include<wrl.h>
-#include<memory>
+#include <Windows.h>
+#include <tchar.h>
+#include <d3d12.h>
+#include <dxgi1_6.h>
+#include <DirectXMath.h>
+#include <vector>
+#include <map>
+#include <unordered_map>
+#include <d3dcompiler.h>
+#include <DirectXTex.h>
+#include <d3dx12.h>
+#include <algorithm>
+#include <memory>
+#include <wrl.h>
 
-class Dx12Wrapper;
-class PMDRenderer;
-class PMDActor;
-///シングルトンクラス
+//class Dx12Wrapper;
+//class PMDRenderer;
+//class PMDActor;
+
+//シングルトンクラス
 class Application
 {
 private:
-	//ここに必要な変数(バッファやヒープなど)を書く
-	//ウィンドウ周り
+	template<typename T>
+	using ComPtr = Microsoft::WRL::ComPtr<T>;
+
+	// シェーダー側に投げられるマテリアルデータ
+	struct MaterialForHlsl
+	{
+		DirectX::XMFLOAT3 diffuse;
+		float alpha;
+		DirectX::XMFLOAT3 specular;
+		float specularity;
+		DirectX::XMFLOAT3 ambient;
+	};
+
+	// それ以外のマテリアルデータ
+	struct AdditionalMaterial
+	{
+		std::string texPath;
+		int toonIdx;
+		bool edgeFlg;
+	};
+
+	// 全体をまとめるデータ
+	struct Material
+	{
+		unsigned int indicesNum;
+		MaterialForHlsl material;
+		AdditionalMaterial additional;
+	};
+
+	// シェーダー側に渡す為の基本的な行列のデータ
+	struct SceneMatrix
+	{
+		DirectX::XMMATRIX world;	   // ワールド行列
+		DirectX::XMMATRIX view;	   // ビュー行列
+		DirectX::XMMATRIX proj;	   // プロジェクション行列
+		DirectX::XMFLOAT3 eye;      // 視点座標
+	};
+
+	// 変数宣言 /////////////////////////////////////////////////////////////////////////////
 	WNDCLASSEX _windowClass;
 	HWND _hwnd;
-	std::shared_ptr<Dx12Wrapper> _dx12;
-	std::shared_ptr<PMDRenderer> _pmdRenderer;
-	std::shared_ptr<PMDActor> _pmdActor;
+	//	std::shared_ptr<Dx12Wrapper> _dx12;
+	//	std::shared_ptr<PMDRenderer> _pmdRenderer;
+	//	std::shared_ptr<PMDActor> _pmdActor;
 
+	ComPtr<IDXGIFactory6> _dxgiFactory = nullptr;
+	ComPtr<ID3D12Device> _dev = nullptr;
+	ComPtr<ID3D12CommandAllocator> _cmdAllocator = nullptr;
+	ComPtr<ID3D12GraphicsCommandList> _cmdList = nullptr;
+	ComPtr<ID3D12CommandQueue> _cmdQueue = nullptr;
+	ComPtr<IDXGISwapChain4> _swapchain = nullptr;
+
+	using LoadLambda_t = std::function<
+		HRESULT(const std::wstring & path, DirectX::TexMetadata*, DirectX::ScratchImage&)>;
+
+	std::map<std::string, LoadLambda_t> loadLambdaTable;
+
+	//ファイル名パスとリソースのマップテーブル
+	std::map<std::string, ID3D12Resource*> _resourceTable;
+
+	std::vector<ID3D12Resource*> _backBuffers;
+	ID3D12DescriptorHeap* rtvHeaps;
+	ID3D12DescriptorHeap* dsvHeap;
+
+	D3D12_VERTEX_BUFFER_VIEW vbView;
+	D3D12_INDEX_BUFFER_VIEW ibView;
+
+
+	ID3D12Fence* _fence;
+	UINT64 _fenceVal;
+
+	ID3D12RootSignature* rootsignature;
+	ID3D12PipelineState* _pipelinestate;
+
+
+	SceneMatrix* mapMatrix;
+	DirectX::XMMATRIX worldMat;
+	DirectX::XMMATRIX viewMat;
+	DirectX::XMMATRIX projMat;
+
+	ID3D12DescriptorHeap* basicDescHeap;
+	ID3D12DescriptorHeap* materialDescHeap;
+
+	std::vector<Material> materials;
+	std::vector<ID3D12Resource*> textureResources;
+	std::vector<ID3D12Resource*> sphResources;
+	std::vector<ID3D12Resource*> spaResources;
+	std::vector<ID3D12Resource*> toonResources;
+	std::vector<unsigned char> vertices;
+	std::vector<unsigned short> indices;
+	unsigned int vertNum; // 頂点数
+	unsigned int indicesNum;
+	unsigned int materialNum;
+	ComPtr<ID3D12Resource> vertBuff;
+	ComPtr<ID3D12Resource> idxBuff;
+	ComPtr<ID3DBlob> _vsBlob;
+	ComPtr<ID3DBlob> _psBlob;
+	ComPtr<ID3DBlob> errorBlob;
+	// 関数宣言 ////////////////////////////////////////////////////////////////////////////
 	//ゲーム用ウィンドウの生成
 	void CreateGameWindow(HWND& hwnd, WNDCLASSEX& windowClass);
+	ID3D12Resource* LoadTextureFromFile(const char* texpath);
+	ID3D12Resource* CreateWhiteTexture();
+	ID3D12Resource* CreateBlackTexture();
+	ID3D12Resource* CreateGrayGradationTexture();
+
+	// DXGIまわり初期化
+	HRESULT InitializeDXGIDevice();
+	// コマンドまわり初期化
+	HRESULT InitializeCommand();
+	// スワップチェインの生成
+	HRESULT CreateSwapChain(const HWND& hwnd);
+	// レンダーターゲットビュー生成
+	HRESULT CreateRTV();
+	// テクスチャローダテーブルの作成
+	void CreateTextureLoaderTable();
+	// デプスバッファ作成
+	HRESULT CreateDepthBuffer();
+	// PMD ファイルのロード
+	HRESULT LoadPMDFile();
+	// 頂点バッファの作成
+	HRESULT CreateVertexBuffer();
+	// インデックスバッファ作成
+	HRESULT CreateIndexBuffer();
+	// マテリアルバッファ作成
+	HRESULT CreateMaterialBuffer();
+	// シェーダー読み込み成功か失敗か確認
+	bool CheckShaderCompileResult(HRESULT result, ComPtr<ID3DBlob> error = nullptr);
+	// シェーダーのセット
+	HRESULT SetShader();
+	// パイプラインの生成
+	HRESULT CreateGraphicsPipelineForPMD();
+	// 定数バッファ作成
+	HRESULT CreateConstantBuffer();
 
 	//↓シングルトンのためにコンストラクタをprivateに
 	//さらにコピーと代入を禁止に
@@ -36,7 +163,7 @@ private:
 	Application(const Application&) = delete;
 	void operator=(const Application&) = delete;
 public:
-	///Applicationのシングルトンインスタンスを得る
+	//Applicationのシングルトンインスタンスを得る
 	static Application& Instance();
 
 	///初期化
