@@ -30,17 +30,8 @@
     <ClCompile Include="main.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
-    <ClCompile Include="Dx12Wrapper\Dx12Wrapper.cpp">
-      <Filter>Dx12Wrapper</Filter>
-    </ClCompile>
     <ClCompile Include="Application\Application.cpp">
       <Filter>Application</Filter>
-    </ClCompile>
-    <ClCompile Include="PMD\PMDActor.cpp">
-      <Filter>PMD</Filter>
-    </ClCompile>
-    <ClCompile Include="PMD\PMDRenderer.cpp">
-      <Filter>PMD</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -57,17 +48,8 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Dx12Wrapper\Dx12Wrapper.h">
-      <Filter>Dx12Wrapper</Filter>
-    </ClInclude>
     <ClInclude Include="Application\Application.h">
       <Filter>Application</Filter>
-    </ClInclude>
-    <ClInclude Include="PMD\PMDActor.h">
-      <Filter>PMD</Filter>
-    </ClInclude>
-    <ClInclude Include="PMD\PMDRenderer.h">
-      <Filter>PMD</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
