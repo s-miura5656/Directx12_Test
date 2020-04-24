@@ -471,12 +471,12 @@ HRESULT Application::CreateVertexBuffer()
 	HRESULT result = S_OK;
 	
 	result = _dx12->Device()->CreateCommittedResource(
-		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
-		D3D12_HEAP_FLAG_NONE,
-		&CD3DX12_RESOURCE_DESC::Buffer(vertices.size()),
-		D3D12_RESOURCE_STATE_GENERIC_READ,
-		nullptr,
-		IID_PPV_ARGS(&vertBuff)
+			 &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+			 D3D12_HEAP_FLAG_NONE,
+			 &CD3DX12_RESOURCE_DESC::Buffer(vertices.size()),
+			 D3D12_RESOURCE_STATE_GENERIC_READ,
+			 nullptr,
+			 IID_PPV_ARGS(&vertBuff)
 	);
 
 	unsigned char* vertMap = nullptr;
@@ -496,12 +496,12 @@ HRESULT Application::CreateIndexBuffer()
 	HRESULT result = S_OK;
 
 	result = _dx12->Device()->CreateCommittedResource(
-		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
-		D3D12_HEAP_FLAG_NONE,
-		&CD3DX12_RESOURCE_DESC::Buffer(indices.size() * sizeof(indices[0])),
-		D3D12_RESOURCE_STATE_GENERIC_READ,
-		nullptr,
-		IID_PPV_ARGS(&idxBuff)
+			 &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+			 D3D12_HEAP_FLAG_NONE,
+			 &CD3DX12_RESOURCE_DESC::Buffer(indices.size() * sizeof(indices[0])),
+			 D3D12_RESOURCE_STATE_GENERIC_READ,
+			 nullptr,
+			 IID_PPV_ARGS(&idxBuff)
 	);
 
 	unsigned short* mappedIndex = nullptr;
@@ -804,19 +804,19 @@ HRESULT Application::CreateGraphicsPipelineForPMD()
 	ID3DBlob* rootSigBlob = nullptr;
 
 	result = D3D12SerializeRootSignature(
-		&rootSignatureDesc,
-		D3D_ROOT_SIGNATURE_VERSION_1_0,
-		&rootSigBlob, &errorBlob);
+			 &rootSignatureDesc,
+			 D3D_ROOT_SIGNATURE_VERSION_1_0,
+			 &rootSigBlob, &errorBlob);
 
 	result = _dx12->Device()->CreateRootSignature(
-		0,
-		rootSigBlob->GetBufferPointer(),
-		rootSigBlob->GetBufferSize(),
-		IID_PPV_ARGS(&rootsignature));
+			 0,
+			 rootSigBlob->GetBufferPointer(),
+			 rootSigBlob->GetBufferSize(),
+			 IID_PPV_ARGS(&rootsignature));
 
 	rootSigBlob->Release();
 
-	gpipeline.pRootSignature = rootsignature;
+	gpipeline.pRootSignature = rootsignature.Get();
 
 
 	result = _dx12->Device()->CreateGraphicsPipelineState(&gpipeline, IID_PPV_ARGS(&_pipelinestate));
@@ -927,7 +927,7 @@ void Application::Run()
 		_dx12->CommandList()->IASetVertexBuffers(0, 1, &vbView);   // 頂点バッファ
 		_dx12->CommandList()->IASetIndexBuffer(&ibView);		   // インデックスバッファ
 
-		_dx12->CommandList()->SetGraphicsRootSignature(rootsignature);
+		_dx12->CommandList()->SetGraphicsRootSignature(rootsignature.Get());
 
 		_dx12->CommandList()->SetDescriptorHeaps(1, &basicDescHeap);
 		_dx12->CommandList()->SetGraphicsRootDescriptorTable(
