@@ -81,7 +81,7 @@ private:
 	DirectX::XMMATRIX projMat;
 
 	ComPtr<ID3D12DescriptorHeap> basicDescHeap;
-	ID3D12DescriptorHeap* materialDescHeap;
+	ComPtr<ID3D12DescriptorHeap> materialDescHeap;
 
 	std::vector<Material> materials;
 	std::vector<ComPtr<ID3D12Resource>> textureResources;

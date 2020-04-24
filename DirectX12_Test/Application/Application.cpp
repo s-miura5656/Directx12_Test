@@ -933,7 +933,7 @@ void Application::Run()
 			0, basicDescHeap->GetGPUDescriptorHandleForHeapStart());
 
 
-		_dx12->CommandList()->SetDescriptorHeaps(1, &materialDescHeap);
+		_dx12->CommandList()->SetDescriptorHeaps(1, materialDescHeap.GetAddressOf());
 
 		auto materialH = materialDescHeap->GetGPUDescriptorHandleForHeapStart();
 		unsigned int idxOffset = 0;
