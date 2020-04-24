@@ -801,20 +801,19 @@ HRESULT Application::CreateGraphicsPipelineForPMD()
 	rootSignatureDesc.pStaticSamplers = samplerDesc;
 	rootSignatureDesc.NumStaticSamplers = 2;
 
-	ID3DBlob* rootSigBlob = nullptr;
+	ComPtr<ID3DBlob> rootSigBlob = nullptr;
 
 	result = D3D12SerializeRootSignature(
 			 &rootSignatureDesc,
 			 D3D_ROOT_SIGNATURE_VERSION_1_0,
-			 &rootSigBlob, &errorBlob);
+			 rootSigBlob.ReleaseAndGetAddressOf(), 
+		     errorBlob.ReleaseAndGetAddressOf());
 
 	result = _dx12->Device()->CreateRootSignature(
 			 0,
 			 rootSigBlob->GetBufferPointer(),
 			 rootSigBlob->GetBufferSize(),
 			 IID_PPV_ARGS(&rootsignature));
-
-	rootSigBlob->Release();
 
 	gpipeline.pRootSignature = rootsignature.Get();
 
