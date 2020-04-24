@@ -345,8 +345,6 @@ HRESULT Application::LoadPMDFile()
 	};
 #pragma pack()
 
-	constexpr size_t pmdvertexsize = 38; // 頂点１つ当たりのサイズ
-
 	fread(&vertNum, sizeof(vertNum), 1, fp);
 
 	vertices.resize(vertNum * pmdvertexsize); // バッファーの確保
@@ -461,15 +459,7 @@ HRESULT Application::LoadPMDFile()
 
 	CreateVertexBuffer();
 
-	vbView.BufferLocation = vertBuff->GetGPUVirtualAddress();
-	vbView.SizeInBytes = vertices.size();
-	vbView.StrideInBytes = pmdvertexsize;
-
 	CreateIndexBuffer();
-
-	ibView.BufferLocation = idxBuff->GetGPUVirtualAddress();
-	ibView.Format = DXGI_FORMAT_R16_UINT;
-	ibView.SizeInBytes = indices.size() * sizeof(indices[0]);
 
 	CreateMaterialBuffer();
 
@@ -494,6 +484,10 @@ HRESULT Application::CreateVertexBuffer()
 	std::copy(std::begin(vertices), std::end(vertices), vertMap);
 	vertBuff->Unmap(0, nullptr);
 	
+	vbView.BufferLocation = vertBuff->GetGPUVirtualAddress();
+	vbView.SizeInBytes = vertices.size();
+	vbView.StrideInBytes = pmdvertexsize;
+
 	return result;
 }
 
@@ -514,6 +508,10 @@ HRESULT Application::CreateIndexBuffer()
 	idxBuff->Map(0, nullptr, (void**)&mappedIndex);
 	std::copy(std::begin(indices), std::end(indices), mappedIndex);
 	idxBuff->Unmap(0, nullptr);
+
+	ibView.BufferLocation = idxBuff->GetGPUVirtualAddress();
+	ibView.Format = DXGI_FORMAT_R16_UINT;
+	ibView.SizeInBytes = indices.size() * sizeof(indices[0]);
 
 	return result;
 }

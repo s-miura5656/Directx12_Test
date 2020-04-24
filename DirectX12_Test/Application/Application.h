@@ -24,6 +24,9 @@ private:
 	template<typename T>
 	using ComPtr = Microsoft::WRL::ComPtr<T>;
 
+	// 定数
+	const size_t pmdvertexsize = 38; // 頂点１つ当たりのサイズ
+
 	// シェーダー側に投げられるマテリアルデータ
 	struct MaterialForHlsl
 	{
