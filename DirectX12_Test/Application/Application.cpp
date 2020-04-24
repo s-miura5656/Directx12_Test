@@ -665,20 +665,20 @@ HRESULT Application::SetShader()
 	HRESULT result;
 
 	result = D3DCompileFromFile(L"Shader/BaseVertexShader.hlsl",
-		nullptr,
-		D3D_COMPILE_STANDARD_FILE_INCLUDE,
-		"BaseVS", "vs_5_0",
-		D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION,
-		0, &_vsBlob, &errorBlob);
+			 nullptr,
+			 D3D_COMPILE_STANDARD_FILE_INCLUDE,
+			 "BaseVS", "vs_5_0",
+			 D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION,
+			 0, _vsBlob.ReleaseAndGetAddressOf(), errorBlob.ReleaseAndGetAddressOf());
 
 	CheckShaderCompileResult(result, errorBlob);
 
 	result = D3DCompileFromFile(L"Shader/BasePixelShader.hlsl",
-		nullptr,
-		D3D_COMPILE_STANDARD_FILE_INCLUDE,
-		"BasePS", "ps_5_0",
-		D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION,
-		0, &_psBlob, &errorBlob);
+			 nullptr,
+			 D3D_COMPILE_STANDARD_FILE_INCLUDE,
+			 "BasePS", "ps_5_0",
+			 D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION,
+			 0, _psBlob.ReleaseAndGetAddressOf(), errorBlob.ReleaseAndGetAddressOf());
 
 	CheckShaderCompileResult(result, errorBlob);
 
