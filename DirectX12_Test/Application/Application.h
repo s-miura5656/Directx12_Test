@@ -73,7 +73,7 @@ private:
 	D3D12_INDEX_BUFFER_VIEW ibView;
 
 	ComPtr<ID3D12RootSignature> rootsignature;
-	ID3D12PipelineState* _pipelinestate;
+	ComPtr<ID3D12PipelineState> _pipelinestate;
 
 	SceneMatrix* mapMatrix;
 	DirectX::XMMATRIX worldMat;

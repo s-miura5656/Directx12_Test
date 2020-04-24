@@ -921,7 +921,7 @@ void Application::Run()
 		_dx12->BeginDraw();
 
 		
-		_dx12->CommandList()->SetPipelineState(_pipelinestate);
+		_dx12->CommandList()->SetPipelineState(_pipelinestate.Get());
 
 		_dx12->CommandList()->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		_dx12->CommandList()->IASetVertexBuffers(0, 1, &vbView);   // 頂点バッファ
