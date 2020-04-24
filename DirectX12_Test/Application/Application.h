@@ -80,7 +80,7 @@ private:
 	DirectX::XMMATRIX viewMat;
 	DirectX::XMMATRIX projMat;
 
-	ID3D12DescriptorHeap* basicDescHeap;
+	ComPtr<ID3D12DescriptorHeap> basicDescHeap;
 	ID3D12DescriptorHeap* materialDescHeap;
 
 	std::vector<Material> materials;

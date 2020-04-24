@@ -168,12 +168,12 @@ ID3D12Resource* Application::CreateWhiteTexture()
 	ID3D12Resource* whiteBuff = nullptr;
 
 	auto result = _dx12->Device()->CreateCommittedResource(
-		&texHeapProp,
-		D3D12_HEAP_FLAG_NONE,
-		&resDesc,
-		D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
-		nullptr,
-		IID_PPV_ARGS(&whiteBuff));
+				  &texHeapProp,
+				  D3D12_HEAP_FLAG_NONE,
+				  &resDesc,
+				  D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+				  nullptr,
+				  IID_PPV_ARGS(&whiteBuff));
 
 	if (FAILED(result))
 	{
@@ -216,12 +216,12 @@ ID3D12Resource* Application::CreateBlackTexture()
 	ID3D12Resource* blackBuff = nullptr;
 
 	auto result = _dx12->Device()->CreateCommittedResource(
-		&texHeapProp,
-		D3D12_HEAP_FLAG_NONE,
-		&resDesc,
-		D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
-		nullptr,
-		IID_PPV_ARGS(&blackBuff));
+				  &texHeapProp,
+				  D3D12_HEAP_FLAG_NONE,
+				  &resDesc,
+				  D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+				  nullptr,
+				  IID_PPV_ARGS(&blackBuff));
 
 	if (FAILED(result))
 		return nullptr;
@@ -928,7 +928,7 @@ void Application::Run()
 
 		_dx12->CommandList()->SetGraphicsRootSignature(rootsignature.Get());
 
-		_dx12->CommandList()->SetDescriptorHeaps(1, &basicDescHeap);
+		_dx12->CommandList()->SetDescriptorHeaps(1, basicDescHeap.GetAddressOf());
 		_dx12->CommandList()->SetGraphicsRootDescriptorTable(
 			0, basicDescHeap->GetGPUDescriptorHandleForHeapStart());
 
