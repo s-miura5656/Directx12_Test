@@ -33,6 +33,9 @@
     <ClCompile Include="Application\Application.cpp">
       <Filter>Application</Filter>
     </ClCompile>
+    <ClCompile Include="Dx12Wrapper\Dx12Wrapper.cpp">
+      <Filter>Dx12Wrapper</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Shader\BasePixelShader.hlsl">
@@ -50,6 +53,9 @@
   <ItemGroup>
     <ClInclude Include="Application\Application.h">
       <Filter>Application</Filter>
+    </ClInclude>
+    <ClInclude Include="Dx12Wrapper\Dx12Wrapper.h">
+      <Filter>Dx12Wrapper</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

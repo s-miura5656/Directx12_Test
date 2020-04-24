@@ -1,5 +1,6 @@
 //ウィンドウ表示＆DirectX初期化
 #include "Application.h"
+#include "../Dx12Wrapper/Dx12Wrapper.h"
 
 #ifdef _DEBUG
 #include <iostream>
@@ -34,7 +35,7 @@ namespace
 		return folderPath + texPath;
 	}
 
-// string ( マルチバイト文字列 ) から wstring ( ワイド文字列 )　を得る
+	// string ( マルチバイト文字列 ) から wstring ( ワイド文字列 )　を得る
 // @param str マルチバイト文字列
 // @return 変換されたワイド文字列
 	wstring GetWideStringFromString(const string& str)
@@ -64,9 +65,9 @@ namespace
 		return wstr;
 	}
 
-// ファイル名から拡張子を取得する
-// @param path 対象のパス文字列
-// @param 拡張子
+	// ファイル名から拡張子を取得する
+	// @param path 対象のパス文字列
+	// @param 拡張子
 	string GetExtension(const string& path)
 	{
 		int idx = path.rfind('.');
@@ -139,94 +140,6 @@ void Application::CreateGameWindow(HWND& hwnd, WNDCLASSEX& windowClass)
 		nullptr); // 追加パラメータ
 }
 
-ID3D12Resource* Application::LoadTextureFromFile(const char* texpath)
-{
-	string texPath = texpath;
-
-	auto it = _resourceTable.find(texPath);
-
-	if (it != _resourceTable.end()) {
-		//テーブルに内にあったらロードするのではなくマップ内の
-		//リソースを返す
-		return _resourceTable[texPath];
-	}
-
-	// WIC テクスチャのロード
-	TexMetadata metadata = {};
-	ScratchImage scratchImg = {};
-
-	auto wtexpath = GetWideStringFromString(texPath);
-
-	auto ext = GetExtension(texPath);
-
-	auto result = loadLambdaTable[ext](
-		wtexpath,
-		&metadata,
-		scratchImg);
-
-	if (FAILED(result))
-	{
-		return nullptr;
-	}
-
-	auto img = scratchImg.GetImage(0, 0, 0);
-
-	// WriteToSubresource で転送する用のヒープ設定
-	D3D12_HEAP_PROPERTIES texHeapProp = {};
-
-	texHeapProp.Type = D3D12_HEAP_TYPE_CUSTOM;
-	texHeapProp.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;
-	texHeapProp.MemoryPoolPreference = D3D12_MEMORY_POOL_L0;
-	texHeapProp.CreationNodeMask = 0;
-	texHeapProp.VisibleNodeMask = 0;
-
-	D3D12_RESOURCE_DESC resDesc = {};
-
-	resDesc.Format = metadata.format;
-	resDesc.Width = metadata.width;
-	resDesc.Height = metadata.height;
-	resDesc.DepthOrArraySize = metadata.arraySize;
-	resDesc.SampleDesc.Count = 1;
-	resDesc.SampleDesc.Quality = 0;
-	resDesc.MipLevels = metadata.mipLevels;
-	resDesc.Dimension = static_cast<D3D12_RESOURCE_DIMENSION>(metadata.dimension);
-	resDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
-	resDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
-
-	// バッファー作成
-	ID3D12Resource* texBuff = nullptr;
-
-	result = _dev->CreateCommittedResource(
-		&texHeapProp,
-		D3D12_HEAP_FLAG_NONE,
-		&resDesc,
-		D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
-		nullptr,
-		IID_PPV_ARGS(&texBuff));
-
-	if (FAILED(result))
-	{
-		return nullptr;
-	}
-
-	result = texBuff->WriteToSubresource(
-		0,
-		nullptr,
-		img->pixels,
-		img->rowPitch,
-		img->slicePitch
-	);
-
-	if (FAILED(result))
-	{
-		return nullptr;
-	}
-
-	_resourceTable[texPath] = texBuff;
-
-	return texBuff;
-}
-
 ID3D12Resource* Application::CreateWhiteTexture()
 {
 	// WriteToSubresource で転送する用のヒープ設定
@@ -254,7 +167,7 @@ ID3D12Resource* Application::CreateWhiteTexture()
 	// バッファー作成
 	ID3D12Resource* whiteBuff = nullptr;
 
-	auto result = _dev->CreateCommittedResource(
+	auto result = _dx12->Device()->CreateCommittedResource(
 		&texHeapProp,
 		D3D12_HEAP_FLAG_NONE,
 		&resDesc,
@@ -302,7 +215,7 @@ ID3D12Resource* Application::CreateBlackTexture()
 	// バッファー作成
 	ID3D12Resource* blackBuff = nullptr;
 
-	auto result = _dev->CreateCommittedResource(
+	auto result = _dx12->Device()->CreateCommittedResource(
 		&texHeapProp,
 		D3D12_HEAP_FLAG_NONE,
 		&resDesc,
@@ -345,7 +258,7 @@ ID3D12Resource* Application::CreateGrayGradationTexture()
 	texHeapProp.VisibleNodeMask = 0;//単一アダプタのため0
 
 	ID3D12Resource* gradBuff = nullptr;
-	auto result = _dev->CreateCommittedResource(
+	auto result = _dx12->Device()->CreateCommittedResource(
 		&texHeapProp,
 		D3D12_HEAP_FLAG_NONE,//特に指定なし
 		&resDesc,
@@ -380,253 +293,6 @@ ID3D12Resource* Application::CreateGrayGradationTexture()
 		sizeof(unsigned int) * data.size());
 
 	return gradBuff;
-}
-
-HRESULT Application::InitializeDXGIDevice()
-{
-	// DirectX12まわり初期化
-	// フィーチャレベル列挙
-	D3D_FEATURE_LEVEL levels[] = {
-		D3D_FEATURE_LEVEL_12_1,
-		D3D_FEATURE_LEVEL_12_0,
-		D3D_FEATURE_LEVEL_11_1,
-		D3D_FEATURE_LEVEL_11_0,
-	};
-
-	HRESULT result = S_OK;
-
-	if (FAILED(CreateDXGIFactory2(DXGI_CREATE_FACTORY_DEBUG, IID_PPV_ARGS(&_dxgiFactory))))
-	{
-		if (FAILED(CreateDXGIFactory2(0, IID_PPV_ARGS(&_dxgiFactory)))) {
-			return -1;
-		}
-	}
-
-	std::vector <IDXGIAdapter*> adapters;
-
-	IDXGIAdapter* tmpAdapter = nullptr;
-
-	for (int i = 0; _dxgiFactory->EnumAdapters(i, &tmpAdapter) != DXGI_ERROR_NOT_FOUND; ++i)
-	{
-		adapters.push_back(tmpAdapter);
-	}
-
-	for (auto adpt : adapters)
-	{
-		DXGI_ADAPTER_DESC adesc = {};
-
-		adpt->GetDesc(&adesc);
-
-		std::wstring strDesc = adesc.Description;
-
-		if (strDesc.find(L"NVIDIA") != std::string::npos) {
-
-			tmpAdapter = adpt;
-			break;
-		}
-	}
-
-	// Direct3Dデバイスの初期化
-	D3D_FEATURE_LEVEL featureLevel;
-
-	for (auto l : levels)
-	{
-		if (D3D12CreateDevice(tmpAdapter, l, IID_PPV_ARGS(&_dev)) == S_OK) {
-
-			featureLevel = l;
-			result = S_OK;
-			break;
-		}
-	}
-
-	return result;
-}
-
-HRESULT Application::InitializeCommand()
-{
-	HRESULT result = S_OK;
-
-	result = _dev->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(_cmdAllocator.ReleaseAndGetAddressOf()));
-
-	if (FAILED(result)) {
-		assert(0);
-		return result;
-	}
-
-	result = _dev->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, _cmdAllocator.Get(), nullptr, IID_PPV_ARGS(_cmdList.ReleaseAndGetAddressOf()));
-
-	if (FAILED(result)) {
-		assert(0);
-		return result;
-	}
-
-	D3D12_COMMAND_QUEUE_DESC cmdQueueDesc = {};
-
-	cmdQueueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE; // タイムアウトなし
-	cmdQueueDesc.NodeMask = 0;
-	cmdQueueDesc.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL; // プライオリティ特に指定なし
-	cmdQueueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT; // ここはコマンドリストと合わせてください
-	result = _dev->CreateCommandQueue(&cmdQueueDesc, IID_PPV_ARGS(&_cmdQueue)); // コマンドキュー生成
-
-	assert(SUCCEEDED(result));
-
-	return result;
-}
-
-HRESULT Application::CreateSwapChain(const HWND& hwnd)
-{
-	HRESULT result = S_OK;
-
-	DXGI_SWAP_CHAIN_DESC1 swapchainDesc = {};
-
-	swapchainDesc.Width = window_width;
-	swapchainDesc.Height = window_height;
-	swapchainDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-	swapchainDesc.Stereo = false;
-	swapchainDesc.SampleDesc.Count = 1;
-	swapchainDesc.SampleDesc.Quality = 0;
-	swapchainDesc.BufferUsage = DXGI_USAGE_BACK_BUFFER;
-	swapchainDesc.BufferCount = 2;
-	swapchainDesc.Scaling = DXGI_SCALING_STRETCH;
-	swapchainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
-	swapchainDesc.AlphaMode = DXGI_ALPHA_MODE_UNSPECIFIED;
-	swapchainDesc.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
-
-
-	result = _dxgiFactory->CreateSwapChainForHwnd(
-		_cmdQueue.Get(),
-		_hwnd,
-		&swapchainDesc,
-		nullptr,
-		nullptr,
-		(IDXGISwapChain1**)_swapchain.ReleaseAndGetAddressOf());
-
-	assert(SUCCEEDED(result));
-
-	return result;
-}
-
-HRESULT Application::CreateRTV()
-{
-	HRESULT result = S_OK;
-
-	D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {};
-
-	heapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV; // レンダーターゲットビューなので当然RTV
-	heapDesc.NodeMask = 0;
-	heapDesc.NumDescriptors = 2; // 表裏の２つ
-	heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE; // 特に指定なし
-
-	result = _dev->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&rtvHeaps));
-
-	DXGI_SWAP_CHAIN_DESC swcDesc = {};
-	result = _swapchain->GetDesc(&swcDesc);
-
-	_backBuffers.resize(swcDesc.BufferCount);
-
-	D3D12_CPU_DESCRIPTOR_HANDLE handle = rtvHeaps->GetCPUDescriptorHandleForHeapStart();
-
-	D3D12_RENDER_TARGET_VIEW_DESC rtvDesc = {};
-
-	rtvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
-	rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
-
-	for (int i = 0; i < swcDesc.BufferCount; ++i)
-	{
-		result = _swapchain->GetBuffer(i, IID_PPV_ARGS(&_backBuffers[i]));
-
-		_dev->CreateRenderTargetView(_backBuffers[i], &rtvDesc, handle);
-
-		handle.ptr += _dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-	}
-
-	return result;
-}
-
-void Application::CreateTextureLoaderTable()
-{
-	loadLambdaTable["sph"] = loadLambdaTable["bmp"] =
-		loadLambdaTable["png"] = loadLambdaTable["jpg"] =
-		[](const std::wstring& path, TexMetadata* meta, ScratchImage& img)
-		->HRESULT
-	{
-		return LoadFromWICFile(path.c_str(), 0, meta, img);
-	};
-
-	loadLambdaTable["tga"] =
-		[](const std::wstring& path, TexMetadata* meta, ScratchImage& img)
-		->HRESULT
-	{
-		return LoadFromTGAFile(path.c_str(), meta, img);
-	};
-
-	loadLambdaTable["dds"] =
-		[](const std::wstring& path, TexMetadata* meta, ScratchImage& img)
-		->HRESULT
-	{
-		return LoadFromDDSFile(path.c_str(), 0, meta, img);
-	};
-}
-
-HRESULT Application::CreateDepthBuffer()
-{
-	HRESULT result = S_OK;
-
-	// 深度バッファの作成
-	D3D12_RESOURCE_DESC depthResDesc = {};
-
-	depthResDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;  // 二次元のテクスチャデータ
-	depthResDesc.Width = window_width;							  // 幅と高さはレンダーターゲットと同じ
-	depthResDesc.Height = window_height;						  // 同上
-	depthResDesc.DepthOrArraySize = 1;							  // テクスチャ配列でも、3D テクスチャでもない
-	depthResDesc.Format = DXGI_FORMAT_D32_FLOAT;				  // 深度値書き込み用フォーマット
-	depthResDesc.SampleDesc.Count = 1;							  // サンプルは 1 ピクセル当たり 1 つ
-	depthResDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL; // デプスステンシルとして使用
-
-	// 深度値用ヒーププロパティ
-	D3D12_HEAP_PROPERTIES depthHeapProp = {};
-
-	depthHeapProp.Type = D3D12_HEAP_TYPE_DEFAULT;
-	depthHeapProp.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
-	depthHeapProp.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
-
-	// このクリアバリューが重要な意味を持つ
-	D3D12_CLEAR_VALUE depthClearValue = {};
-	depthClearValue.DepthStencil.Depth = 1.0f; // 深さ 1.0 ( 最大値 )でクリア
-	depthClearValue.Format = DXGI_FORMAT_D32_FLOAT; // 32 ビット float 値としてクリア
-
-	ID3D12Resource* depthBuffer = nullptr;
-
-	result = _dev->CreateCommittedResource(
-		&depthHeapProp,
-		D3D12_HEAP_FLAG_NONE,
-		&depthResDesc,
-		D3D12_RESOURCE_STATE_DEPTH_WRITE,
-		&depthClearValue,
-		IID_PPV_ARGS(&depthBuffer)
-	);
-
-	D3D12_DESCRIPTOR_HEAP_DESC dsvHeapDesc = {};
-
-	dsvHeapDesc.NumDescriptors = 1;
-	dsvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
-
-
-	result = _dev->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(&dsvHeap));
-
-	// 深度ビューの作成
-	D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
-
-	dsvDesc.Format = DXGI_FORMAT_D32_FLOAT; // 深度値に 32 ビット使用
-	dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
-	dsvDesc.Flags = D3D12_DSV_FLAG_NONE;
-
-	_dev->CreateDepthStencilView(
-		depthBuffer,
-		&dsvDesc,
-		dsvHeap->GetCPUDescriptorHandleForHeapStart());
-
-	return result;
 }
 
 HRESULT Application::LoadPMDFile()
@@ -725,7 +391,7 @@ HRESULT Application::LoadPMDFile()
 
 		sprintf(toonFilePath, "Content/Toon/toon%02d.bmp", pmdMaterials[i].toonIdx + 1);
 
-		toonResources[i] = LoadTextureFromFile(toonFilePath);
+		toonResources[i] = _dx12->GetTextureByPath(toonFilePath);
 
 		if (strlen(pmdMaterials[i].texFilePath) == 0)
 		{
@@ -778,17 +444,17 @@ HRESULT Application::LoadPMDFile()
 		if (texFileName != "")
 		{
 			auto texFilePath = GetTexturePathFromModelAndTexPath(strModelPath, texFileName.c_str());
-			textureResources[i] = LoadTextureFromFile(texFilePath.c_str());
+			textureResources[i] = _dx12->GetTextureByPath(texFilePath.c_str());
 		}
 		if (sphFileName != "")
 		{
 			auto sphFilePath = GetTexturePathFromModelAndTexPath(strModelPath, sphFileName.c_str());
-			sphResources[i] = LoadTextureFromFile(sphFilePath.c_str());
+			sphResources[i] = _dx12->GetTextureByPath(sphFilePath.c_str());
 		}
 		if (spaFileName != "")
 		{
 			auto spaFilePath = GetTexturePathFromModelAndTexPath(strModelPath, spaFileName.c_str());
-			spaResources[i] = LoadTextureFromFile(spaFilePath.c_str());
+			spaResources[i] = _dx12->GetTextureByPath(spaFilePath.c_str());
 		}
 	}
 	fclose(fp);
@@ -814,7 +480,7 @@ HRESULT Application::CreateVertexBuffer()
 {
 	HRESULT result = S_OK;
 	
-	result = _dev->CreateCommittedResource(
+	result = _dx12->Device()->CreateCommittedResource(
 		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
 		D3D12_HEAP_FLAG_NONE,
 		&CD3DX12_RESOURCE_DESC::Buffer(vertices.size()),
@@ -835,7 +501,7 @@ HRESULT Application::CreateIndexBuffer()
 {
 	HRESULT result = S_OK;
 
-	result = _dev->CreateCommittedResource(
+	result = _dx12->Device()->CreateCommittedResource(
 		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
 		D3D12_HEAP_FLAG_NONE,
 		&CD3DX12_RESOURCE_DESC::Buffer(indices.size() * sizeof(indices[0])),
@@ -862,7 +528,7 @@ HRESULT Application::CreateMaterialBuffer()
 
 	ID3D12Resource* materialBuff = nullptr;
 
-	result = _dev->CreateCommittedResource(
+	result = _dx12->Device()->CreateCommittedResource(
 		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
 		D3D12_HEAP_FLAG_NONE,
 		&CD3DX12_RESOURCE_DESC::Buffer(materialBuffSize * materialNum),
@@ -890,7 +556,7 @@ HRESULT Application::CreateMaterialBuffer()
 	matDescHeapDesc.NumDescriptors = materialNum * 5;
 	matDescHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 
-	result = _dev->CreateDescriptorHeap(
+	result = _dx12->Device()->CreateDescriptorHeap(
 		&matDescHeapDesc, IID_PPV_ARGS(&materialDescHeap));
 
 	D3D12_CONSTANT_BUFFER_VIEW_DESC matCBVDesc = {};
@@ -906,7 +572,7 @@ HRESULT Application::CreateMaterialBuffer()
 
 	// 先頭を記録
 	auto matDescHeapH = materialDescHeap->GetCPUDescriptorHandleForHeapStart();
-	auto incSize = _dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	auto incSize = _dx12->Device()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
 	auto whiteTex = CreateWhiteTexture();
 	auto blackTex = CreateBlackTexture();
@@ -914,55 +580,55 @@ HRESULT Application::CreateMaterialBuffer()
 
 	for (int i = 0; i < materialNum; ++i)
 	{
-		_dev->CreateConstantBufferView(&matCBVDesc, matDescHeapH);
+		_dx12->Device()->CreateConstantBufferView(&matCBVDesc, matDescHeapH);
 		matDescHeapH.ptr += incSize;
 		matCBVDesc.BufferLocation += materialBuffSize;
 
 		if (textureResources[i] == nullptr)
 		{
 			srvDesc.Format = whiteTex->GetDesc().Format;
-			_dev->CreateShaderResourceView(whiteTex, &srvDesc, matDescHeapH);
+			_dx12->Device()->CreateShaderResourceView(whiteTex, &srvDesc, matDescHeapH);
 		}
 		else
 		{
 			srvDesc.Format = textureResources[i]->GetDesc().Format;
-			_dev->CreateShaderResourceView(textureResources[i], &srvDesc, matDescHeapH);
+			_dx12->Device()->CreateShaderResourceView(textureResources[i].Get(), &srvDesc, matDescHeapH);
 		}
 		matDescHeapH.ptr += incSize;
 
 		if (sphResources[i] == nullptr)
 		{
 			srvDesc.Format = whiteTex->GetDesc().Format;
-			_dev->CreateShaderResourceView(whiteTex, &srvDesc, matDescHeapH);
+			_dx12->Device()->CreateShaderResourceView(whiteTex, &srvDesc, matDescHeapH);
 		}
 		else
 		{
 			srvDesc.Format = sphResources[i]->GetDesc().Format;
-			_dev->CreateShaderResourceView(sphResources[i], &srvDesc, matDescHeapH);
+			_dx12->Device()->CreateShaderResourceView(sphResources[i].Get(), &srvDesc, matDescHeapH);
 		}
 		matDescHeapH.ptr += incSize;
 
 		if (spaResources[i] == nullptr)
 		{
 			srvDesc.Format = blackTex->GetDesc().Format;
-			_dev->CreateShaderResourceView(blackTex, &srvDesc, matDescHeapH);
+			_dx12->Device()->CreateShaderResourceView(blackTex, &srvDesc, matDescHeapH);
 		}
 		else
 		{
 			srvDesc.Format = spaResources[i]->GetDesc().Format;
-			_dev->CreateShaderResourceView(spaResources[i], &srvDesc, matDescHeapH);
+			_dx12->Device()->CreateShaderResourceView(spaResources[i].Get(), &srvDesc, matDescHeapH);
 		}
 		matDescHeapH.ptr += incSize;
 
 		if (toonResources[i] == nullptr)
 		{
 			srvDesc.Format = gradTex->GetDesc().Format;
-			_dev->CreateShaderResourceView(gradTex, &srvDesc, matDescHeapH);
+			_dx12->Device()->CreateShaderResourceView(gradTex, &srvDesc, matDescHeapH);
 		}
 		else
 		{
 			srvDesc.Format = toonResources[i]->GetDesc().Format;
-			_dev->CreateShaderResourceView(toonResources[i], &srvDesc, matDescHeapH);
+			_dx12->Device()->CreateShaderResourceView(toonResources[i].Get(), &srvDesc, matDescHeapH);
 		}
 		matDescHeapH.ptr += incSize;
 	}
@@ -1144,7 +810,7 @@ HRESULT Application::CreateGraphicsPipelineForPMD()
 		D3D_ROOT_SIGNATURE_VERSION_1_0,
 		&rootSigBlob, &errorBlob);
 
-	result = _dev->CreateRootSignature(
+	result = _dx12->Device()->CreateRootSignature(
 		0,
 		rootSigBlob->GetBufferPointer(),
 		rootSigBlob->GetBufferSize(),
@@ -1155,7 +821,7 @@ HRESULT Application::CreateGraphicsPipelineForPMD()
 	gpipeline.pRootSignature = rootsignature;
 
 
-	result = _dev->CreateGraphicsPipelineState(&gpipeline, IID_PPV_ARGS(&_pipelinestate));
+	result = _dx12->Device()->CreateGraphicsPipelineState(&gpipeline, IID_PPV_ARGS(&_pipelinestate));
 
 	return result;
 }
@@ -1180,7 +846,7 @@ HRESULT Application::CreateConstantBuffer()
 
 	ID3D12Resource* constBuff = nullptr;
 
-	result = _dev->CreateCommittedResource(
+	result = _dx12->Device()->CreateCommittedResource(
 		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
 		D3D12_HEAP_FLAG_NONE,
 		&CD3DX12_RESOURCE_DESC::Buffer((sizeof(SceneMatrix) + 0xff) & ~0xff),
@@ -1202,7 +868,7 @@ HRESULT Application::CreateConstantBuffer()
 	descHeapDesc.NumDescriptors = 2;
 	descHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 
-	result = _dev->CreateDescriptorHeap(&descHeapDesc, IID_PPV_ARGS(&basicDescHeap));
+	result = _dx12->Device()->CreateDescriptorHeap(&descHeapDesc, IID_PPV_ARGS(&basicDescHeap));
 
 	auto basicHeapHandle = basicDescHeap->GetCPUDescriptorHandleForHeapStart();
 
@@ -1211,52 +877,16 @@ HRESULT Application::CreateConstantBuffer()
 	cbvDesc.BufferLocation = constBuff->GetGPUVirtualAddress();
 	cbvDesc.SizeInBytes = constBuff->GetDesc().Width;
 
-	_dev->CreateConstantBufferView(&cbvDesc, basicHeapHandle);
+	_dx12->Device()->CreateConstantBufferView(&cbvDesc, basicHeapHandle);
 	
 	return result;
 }
 
-void EnableDebugLayer() {
-	ID3D12Debug* debugLayer = nullptr;
-	if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugLayer)))) {
-		debugLayer->EnableDebugLayer();
-		debugLayer->Release();
-	}
-}
-
-//#ifdef _DEBUG
-//int main() {
-//#else
-//#include<Windows.h>
-//int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
-//#endif // _DEBUG
-//	
-//
-//#ifdef _DEBUG
-//	// デバッグレイヤーをオンに
-//	EnableDebugLayer();
-//#endif
-//
-//	return 0;
-//}
-
 bool Application::Init()
 {
-#ifdef _DEBUG
-	//デバッグレイヤーをオンに
-	EnableDebugLayer();
-#endif
 	CreateGameWindow(_hwnd, _windowClass);
-	InitializeDXGIDevice();
-	InitializeCommand();
-	CreateSwapChain(_hwnd);
-	CreateRTV();
-	CreateTextureLoaderTable();
-	CreateDepthBuffer();
-
-	HRESULT result = S_OK;
-
-	result = _dev->CreateFence(_fenceVal, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&_fence));
+	
+	_dx12.reset(new Dx12Wrapper(_hwnd));
 
 	ShowWindow(_hwnd, SW_SHOW); // ウィンドウ表示
 
@@ -1290,56 +920,35 @@ void Application::Run()
 		mapMatrix->view = viewMat;
 		mapMatrix->proj = projMat;
 
-		// DirectX処理
-		// バックバッファのインデックスを取得
-		auto bbIdx = _swapchain->GetCurrentBackBufferIndex();
+		_dx12->BeginDraw();
 
-		_cmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(_backBuffers[bbIdx],
-			D3D12_RESOURCE_STATE_PRESENT,
-			D3D12_RESOURCE_STATE_RENDER_TARGET));
+		
+		_dx12->CommandList()->SetPipelineState(_pipelinestate);
 
-		_cmdList->SetPipelineState(_pipelinestate);
+		_dx12->CommandList()->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		_dx12->CommandList()->IASetVertexBuffers(0, 1, &vbView);   // 頂点バッファ
+		_dx12->CommandList()->IASetIndexBuffer(&ibView);		   // インデックスバッファ
 
-		// レンダーターゲットを指定
-		auto rtvH = rtvHeaps->GetCPUDescriptorHandleForHeapStart();
-		rtvH.ptr += bbIdx * _dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-		auto dsvH = dsvHeap->GetCPUDescriptorHandleForHeapStart();
-		_cmdList->OMSetRenderTargets(1, &rtvH, false, &dsvH);
+		_dx12->CommandList()->SetGraphicsRootSignature(rootsignature);
 
-		// 画面クリア
-		float clearColor[] = { 1.0f,1.0f,1.0f,1.0f }; // 白色
-		_cmdList->ClearRenderTargetView(rtvH, clearColor, 0, nullptr);
-		_cmdList->ClearDepthStencilView(dsvH, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
-
-		/*-魔導書に書いてあるけど実装部分を書いてないところ ( 書かないと直角三角形にならない )-*/
-		_cmdList->RSSetViewports(1, &CD3DX12_VIEWPORT(0.0f, 0.0f, window_width, window_height));
-		_cmdList->RSSetScissorRects(1, &CD3DX12_RECT(0.0f, 0.0f, window_width, window_height));
-		/*-------------------------------------------------------------------------------------*/
-
-		_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-		_cmdList->IASetVertexBuffers(0, 1, &vbView);   // 頂点バッファ
-		_cmdList->IASetIndexBuffer(&ibView);		   // インデックスバッファ
-
-		_cmdList->SetGraphicsRootSignature(rootsignature);
-
-		_cmdList->SetDescriptorHeaps(1, &basicDescHeap);
-		_cmdList->SetGraphicsRootDescriptorTable(
+		_dx12->CommandList()->SetDescriptorHeaps(1, &basicDescHeap);
+		_dx12->CommandList()->SetGraphicsRootDescriptorTable(
 			0, basicDescHeap->GetGPUDescriptorHandleForHeapStart());
 
 
-		_cmdList->SetDescriptorHeaps(1, &materialDescHeap);
+		_dx12->CommandList()->SetDescriptorHeaps(1, &materialDescHeap);
 
 		auto materialH = materialDescHeap->GetGPUDescriptorHandleForHeapStart();
 		unsigned int idxOffset = 0;
 
-		auto cbvsrvIncSize = _dev->GetDescriptorHandleIncrementSize(
+		auto cbvsrvIncSize = _dx12->Device()->GetDescriptorHandleIncrementSize(
 			D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV) * 5;
 
 		for (auto& m : materials)
 		{
-			_cmdList->SetGraphicsRootDescriptorTable(1, materialH);
+			_dx12->CommandList()->SetGraphicsRootDescriptorTable(1, materialH);
 
-			_cmdList->DrawIndexedInstanced(m.indicesNum, 1, idxOffset, 0, 0);
+			_dx12->CommandList()->DrawIndexedInstanced(m.indicesNum, 1, idxOffset, 0, 0);
 
 			// ヒープポインターとインデックスを次に進める
 			materialH.ptr += cbvsrvIncSize;
@@ -1347,35 +956,10 @@ void Application::Run()
 			idxOffset += m.indicesNum;
 		}
 
-		_cmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(_backBuffers[bbIdx],
-			D3D12_RESOURCE_STATE_RENDER_TARGET,
-			D3D12_RESOURCE_STATE_PRESENT));
-
-		// 命令のクローズ
-		_cmdList->Close();
-
-		// コマンドリストの実行
-		ID3D12CommandList* cmdlists[] = { _cmdList.Get() };
-		_cmdQueue->ExecuteCommandLists(1, cmdlists);
-		// 待ち
-		_cmdQueue->Signal(_fence, ++_fenceVal);
-
-		if (_fence->GetCompletedValue() != _fenceVal)
-		{
-			auto event = CreateEvent(nullptr, false, false, nullptr);
-
-			_fence->SetEventOnCompletion(_fenceVal, event);
-
-			WaitForSingleObject(event, INFINITE);
-
-			CloseHandle(event);
-		}
-
-		_cmdAllocator->Reset(); // キューをクリア
-		_cmdList->Reset(_cmdAllocator.Get(), nullptr); // 再びコマンドリストをためる準備
+		_dx12->EndDraw();
 
 		// フリップ
-		_swapchain->Present(1, 0);
+		_dx12->SwapChain()->Present(1, 0);
 	}
 }
 

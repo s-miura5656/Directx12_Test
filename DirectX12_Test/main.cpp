@@ -8,6 +8,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 #endif // _DEBUG
 
 	auto& app = Application::Instance();
+
 	if (!app.Init())
 	{
 		return -1;

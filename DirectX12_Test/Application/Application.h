@@ -1,12 +1,11 @@
 #pragma once
+
 #include <Windows.h>
 #include <tchar.h>
 #include <d3d12.h>
 #include <dxgi1_6.h>
 #include <DirectXMath.h>
 #include <vector>
-#include <map>
-#include <unordered_map>
 #include <d3dcompiler.h>
 #include <DirectXTex.h>
 #include <d3dx12.h>
@@ -14,7 +13,7 @@
 #include <memory>
 #include <wrl.h>
 
-//class Dx12Wrapper;
+class Dx12Wrapper;
 //class PMDRenderer;
 //class PMDActor;
 
@@ -63,39 +62,15 @@ private:
 	// 変数宣言 /////////////////////////////////////////////////////////////////////////////
 	WNDCLASSEX _windowClass;
 	HWND _hwnd;
-	//	std::shared_ptr<Dx12Wrapper> _dx12;
+	std::shared_ptr<Dx12Wrapper> _dx12;
 	//	std::shared_ptr<PMDRenderer> _pmdRenderer;
 	//	std::shared_ptr<PMDActor> _pmdActor;
-
-	ComPtr<IDXGIFactory6> _dxgiFactory = nullptr;
-	ComPtr<ID3D12Device> _dev = nullptr;
-	ComPtr<ID3D12CommandAllocator> _cmdAllocator = nullptr;
-	ComPtr<ID3D12GraphicsCommandList> _cmdList = nullptr;
-	ComPtr<ID3D12CommandQueue> _cmdQueue = nullptr;
-	ComPtr<IDXGISwapChain4> _swapchain = nullptr;
-
-	using LoadLambda_t = std::function<
-		HRESULT(const std::wstring & path, DirectX::TexMetadata*, DirectX::ScratchImage&)>;
-
-	std::map<std::string, LoadLambda_t> loadLambdaTable;
-
-	//ファイル名パスとリソースのマップテーブル
-	std::map<std::string, ID3D12Resource*> _resourceTable;
-
-	std::vector<ID3D12Resource*> _backBuffers;
-	ID3D12DescriptorHeap* rtvHeaps;
-	ID3D12DescriptorHeap* dsvHeap;
 
 	D3D12_VERTEX_BUFFER_VIEW vbView;
 	D3D12_INDEX_BUFFER_VIEW ibView;
 
-
-	ID3D12Fence* _fence;
-	UINT64 _fenceVal;
-
 	ID3D12RootSignature* rootsignature;
 	ID3D12PipelineState* _pipelinestate;
-
 
 	SceneMatrix* mapMatrix;
 	DirectX::XMMATRIX worldMat;
@@ -106,10 +81,10 @@ private:
 	ID3D12DescriptorHeap* materialDescHeap;
 
 	std::vector<Material> materials;
-	std::vector<ID3D12Resource*> textureResources;
-	std::vector<ID3D12Resource*> sphResources;
-	std::vector<ID3D12Resource*> spaResources;
-	std::vector<ID3D12Resource*> toonResources;
+	std::vector<ComPtr<ID3D12Resource>> textureResources;
+	std::vector<ComPtr<ID3D12Resource>> sphResources;
+	std::vector<ComPtr<ID3D12Resource>> spaResources;
+	std::vector<ComPtr<ID3D12Resource>> toonResources;
 	std::vector<unsigned char> vertices;
 	std::vector<unsigned short> indices;
 	unsigned int vertNum; // 頂点数
@@ -123,23 +98,11 @@ private:
 	// 関数宣言 ////////////////////////////////////////////////////////////////////////////
 	//ゲーム用ウィンドウの生成
 	void CreateGameWindow(HWND& hwnd, WNDCLASSEX& windowClass);
-	ID3D12Resource* LoadTextureFromFile(const char* texpath);
 	ID3D12Resource* CreateWhiteTexture();
 	ID3D12Resource* CreateBlackTexture();
 	ID3D12Resource* CreateGrayGradationTexture();
 
-	// DXGIまわり初期化
-	HRESULT InitializeDXGIDevice();
-	// コマンドまわり初期化
-	HRESULT InitializeCommand();
-	// スワップチェインの生成
-	HRESULT CreateSwapChain(const HWND& hwnd);
-	// レンダーターゲットビュー生成
-	HRESULT CreateRTV();
-	// テクスチャローダテーブルの作成
-	void CreateTextureLoaderTable();
-	// デプスバッファ作成
-	HRESULT CreateDepthBuffer();
+	
 	// PMD ファイルのロード
 	HRESULT LoadPMDFile();
 	// 頂点バッファの作成
@@ -174,7 +137,7 @@ public:
 
 	///後処理
 	void Terminate();
-	SIZE GetWindowSize()const;
+	SIZE GetWindowSize() const;
 	~Application();
 };
 
