@@ -98,6 +98,7 @@ private:
 	ComPtr<ID3DBlob> _vsBlob;
 	ComPtr<ID3DBlob> _psBlob;
 	ComPtr<ID3DBlob> errorBlob;
+
 	// 関数宣言 ////////////////////////////////////////////////////////////////////////////
 	//ゲーム用ウィンドウの生成
 	void CreateGameWindow(HWND& hwnd, WNDCLASSEX& windowClass);

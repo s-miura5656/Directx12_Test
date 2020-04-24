@@ -527,12 +527,12 @@ HRESULT Application::CreateMaterialBuffer()
 	ID3D12Resource* materialBuff = nullptr;
 
 	result = _dx12->Device()->CreateCommittedResource(
-		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
-		D3D12_HEAP_FLAG_NONE,
-		&CD3DX12_RESOURCE_DESC::Buffer(materialBuffSize * materialNum),
-		D3D12_RESOURCE_STATE_GENERIC_READ,
-		nullptr,
-		IID_PPV_ARGS(&materialBuff));
+			 &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+			 D3D12_HEAP_FLAG_NONE,
+			 &CD3DX12_RESOURCE_DESC::Buffer(materialBuffSize * materialNum),
+			 D3D12_RESOURCE_STATE_GENERIC_READ,
+			 nullptr,
+			 IID_PPV_ARGS(&materialBuff));
 
 	char* mapMaterial = nullptr;
 
@@ -572,9 +572,9 @@ HRESULT Application::CreateMaterialBuffer()
 	auto matDescHeapH = materialDescHeap->GetCPUDescriptorHandleForHeapStart();
 	auto incSize = _dx12->Device()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
-	auto whiteTex = CreateWhiteTexture();
-	auto blackTex = CreateBlackTexture();
-	auto gradTex = CreateGrayGradationTexture();
+	ComPtr<ID3D12Resource> whiteTex = CreateWhiteTexture();
+	ComPtr<ID3D12Resource> blackTex = CreateBlackTexture();
+	ComPtr<ID3D12Resource> gradTex = CreateGrayGradationTexture();
 
 	for (int i = 0; i < materialNum; ++i)
 	{
@@ -585,7 +585,7 @@ HRESULT Application::CreateMaterialBuffer()
 		if (textureResources[i] == nullptr)
 		{
 			srvDesc.Format = whiteTex->GetDesc().Format;
-			_dx12->Device()->CreateShaderResourceView(whiteTex, &srvDesc, matDescHeapH);
+			_dx12->Device()->CreateShaderResourceView(whiteTex.Get(), &srvDesc, matDescHeapH);
 		}
 		else
 		{
@@ -597,7 +597,7 @@ HRESULT Application::CreateMaterialBuffer()
 		if (sphResources[i] == nullptr)
 		{
 			srvDesc.Format = whiteTex->GetDesc().Format;
-			_dx12->Device()->CreateShaderResourceView(whiteTex, &srvDesc, matDescHeapH);
+			_dx12->Device()->CreateShaderResourceView(whiteTex.Get(), &srvDesc, matDescHeapH);
 		}
 		else
 		{
@@ -609,7 +609,7 @@ HRESULT Application::CreateMaterialBuffer()
 		if (spaResources[i] == nullptr)
 		{
 			srvDesc.Format = blackTex->GetDesc().Format;
-			_dx12->Device()->CreateShaderResourceView(blackTex, &srvDesc, matDescHeapH);
+			_dx12->Device()->CreateShaderResourceView(blackTex.Get(), &srvDesc, matDescHeapH);
 		}
 		else
 		{
@@ -621,7 +621,7 @@ HRESULT Application::CreateMaterialBuffer()
 		if (toonResources[i] == nullptr)
 		{
 			srvDesc.Format = gradTex->GetDesc().Format;
-			_dx12->Device()->CreateShaderResourceView(gradTex, &srvDesc, matDescHeapH);
+			_dx12->Device()->CreateShaderResourceView(gradTex.Get(), &srvDesc, matDescHeapH);
 		}
 		else
 		{
