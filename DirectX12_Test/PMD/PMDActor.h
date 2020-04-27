@@ -15,77 +15,75 @@ class PMDActor
 private:
 	std::shared_ptr<PMDRenderer> _renderer;
 	std::shared_ptr<Dx12Wrapper> _dx12;
-	template<typename T>
-	using ComPtr = Microsoft::WRL::ComPtr<T>;
 
-	//頂点関連
-	ComPtr<ID3D12Resource> _vb = nullptr;
-	ComPtr<ID3D12Resource> _ib = nullptr;
-	D3D12_VERTEX_BUFFER_VIEW _vbView = {};
-	D3D12_INDEX_BUFFER_VIEW _ibView = {};
-
-	ComPtr<ID3D12Resource> _transformMat = nullptr;//座標変換行列(今はワールドのみ)
-	ComPtr<ID3D12DescriptorHeap> _transformHeap = nullptr;//座標変換ヒープ
-
-	//シェーダ側に投げられるマテリアルデータ
-	struct MaterialForHlsl {
-		DirectX::XMFLOAT3 diffuse; //ディフューズ色
-		float alpha; // ディフューズα
-		DirectX::XMFLOAT3 specular; //スペキュラ色
-		float specularity;//スペキュラの強さ(乗算値)
-		DirectX::XMFLOAT3 ambient; //アンビエント色
+	// シェーダー側に投げられるマテリアルデータ
+	struct MaterialForHlsl
+	{
+		DirectX::XMFLOAT3 diffuse;
+		float alpha;
+		DirectX::XMFLOAT3 specular;
+		float specularity;
+		DirectX::XMFLOAT3 ambient;
 	};
-	//それ以外のマテリアルデータ
-	struct AdditionalMaterial {
-		std::string texPath;//テクスチャファイルパス
-		int toonIdx; //トゥーン番号
-		bool edgeFlg;//マテリアル毎の輪郭線フラグ
+
+	// それ以外のマテリアルデータ
+	struct AdditionalMaterial
+	{
+		std::string texPath;
+		int toonIdx;
+		bool edgeFlg;
 	};
-	//まとめたもの
-	struct Material {
-		unsigned int indicesNum;//インデックス数
+
+	// 全体をまとめるデータ
+	struct Material
+	{
+		unsigned int indicesNum;
 		MaterialForHlsl material;
 		AdditionalMaterial additional;
 	};
 
-	struct Transform {
-		//内部に持ってるXMMATRIXメンバが16バイトアライメントであるため
-		//Transformをnewする際には16バイト境界に確保する
-		void* operator new(size_t size);
-		DirectX::XMMATRIX world;
-	};
+	template<typename T>
+	using ComPtr = Microsoft::WRL::ComPtr<T>;
 
-	Transform _transform;
-	Transform* _mappedTransform = nullptr;
-	ComPtr<ID3D12Resource> _transformBuff = nullptr;
+	// 定数宣言
+	const size_t pmdvertexsize = 38; // 頂点１つ当たりのサイズ
 
-	//マテリアル関連
-	std::vector<Material> _materials;
-	ComPtr<ID3D12Resource> _materialBuff = nullptr;
-	std::vector<ComPtr<ID3D12Resource>> _textureResources;
-	std::vector<ComPtr<ID3D12Resource>> _sphResources;
-	std::vector<ComPtr<ID3D12Resource>> _spaResources;
-	std::vector<ComPtr<ID3D12Resource>> _toonResources;
+	// 変数宣言
+	D3D12_VERTEX_BUFFER_VIEW vbView;
+	D3D12_INDEX_BUFFER_VIEW ibView;
 
-	//読み込んだマテリアルをもとにマテリアルバッファを作成
-	HRESULT CreateMaterialData();
+	ComPtr<ID3D12DescriptorHeap> materialDescHeap;
 
-	ComPtr< ID3D12DescriptorHeap> _materialHeap = nullptr;//マテリアルヒープ(5個ぶん)
-	//マテリアル＆テクスチャのビューを作成
-	HRESULT CreateMaterialAndTextureView();
+	std::vector<Material> materials;
+	std::vector<ComPtr<ID3D12Resource>> textureResources;
+	std::vector<ComPtr<ID3D12Resource>> sphResources;
+	std::vector<ComPtr<ID3D12Resource>> spaResources;
+	std::vector<ComPtr<ID3D12Resource>> toonResources;
+	std::vector<unsigned char> vertices;
+	std::vector<unsigned short> indices;
+	unsigned int vertNum; // 頂点数
+	unsigned int indicesNum;
+	unsigned int materialNum;
+	ComPtr<ID3D12Resource> vertBuff;
+	ComPtr<ID3D12Resource> idxBuff;
 
-	//座標変換用ビューの生成
-	HRESULT CreateTransformView();
+	ID3D12Resource* CreateWhiteTexture();
+	ID3D12Resource* CreateBlackTexture();
+	ID3D12Resource* CreateGrayGradationTexture();
 
-	//PMDファイルのロード
+	// PMD ファイルのロード
 	HRESULT LoadPMDFile(const char* path);
+	// 頂点バッファの作成
+	HRESULT CreateVertexBuffer();
+	// インデックスバッファ作成
+	HRESULT CreateIndexBuffer();
+	// マテリアルバッファ作成
+	HRESULT CreateMaterialBuffer();
 
-	float _angle;//テスト用Y軸回転
 public:
-	PMDActor(const char* filepath, std::shared_ptr<PMDRenderer> renderer);
+	PMDActor(std::shared_ptr<Dx12Wrapper> dx12, const char* path);
 	~PMDActor();
-	///クローンは頂点およびマテリアルは共通のバッファを見るようにする
-	PMDActor* Clone();
+	
 	void Update();
 	void Draw();
 

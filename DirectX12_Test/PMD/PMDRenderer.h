@@ -1,46 +1,65 @@
 #pragma once
 
-#include<d3d12.h>
-#include<vector>
-#include<wrl.h>
-#include<memory>
+#include <vector>
+#include <wrl.h>
+#include <memory>
+#include <d3dcompiler.h>
+#include <DirectXTex.h>
+#include <d3dx12.h>
+#include <DirectXMath.h>
+#include <d3d12.h>
+#include <dxgi1_6.h>
 
 class Dx12Wrapper;
-class PMDActor;
+
 class PMDRenderer
 {
-	friend PMDActor;
 private:
-	std::shared_ptr<Dx12Wrapper> _dx12;
+	// シェーダー側に渡す為の基本的な行列のデータ
+	struct SceneMatrix
+	{
+		DirectX::XMMATRIX world;	// ワールド行列
+		DirectX::XMMATRIX view;		// ビュー行列
+		DirectX::XMMATRIX proj;		// プロジェクション行列
+		DirectX::XMFLOAT3 eye;      // 視点座標
+	};
+
+
 	template<typename T>
 	using ComPtr = Microsoft::WRL::ComPtr<T>;
 
-	ComPtr< ID3D12PipelineState> _pipeline = nullptr;//PMD用パイプライン
-	ComPtr< ID3D12RootSignature> _rootSignature = nullptr;//PMD用ルートシグネチャ
+	// 変数宣言
+	std::shared_ptr<Dx12Wrapper> _dx12;
+	float angle = 0.0f;
 
-	//PMD用共通テクスチャ(白、黒、グレイスケールグラデーション)
-	ComPtr<ID3D12Resource> _whiteTex = nullptr;
-	ComPtr<ID3D12Resource> _blackTex = nullptr;
-	ComPtr<ID3D12Resource> _gradTex = nullptr;
+	ComPtr<ID3DBlob> _vsBlob;
+	ComPtr<ID3DBlob> _psBlob;
+	ComPtr<ID3DBlob> errorBlob;
+	ComPtr<ID3D12RootSignature> rootsignature;
+	ComPtr<ID3D12PipelineState> pipelinestate;
+	ComPtr<ID3D12DescriptorHeap> basicDescHeap;
 
-	ID3D12Resource* CreateDefaultTexture(size_t width, size_t height);
-	ID3D12Resource* CreateWhiteTexture();//白テクスチャの生成
-	ID3D12Resource* CreateBlackTexture();//黒テクスチャの生成
-	ID3D12Resource* CreateGrayGradationTexture();//グレーテクスチャの生成
+	SceneMatrix* mapMatrix;
+	DirectX::XMMATRIX worldMat;
+	DirectX::XMMATRIX viewMat;
+	DirectX::XMMATRIX projMat;
 
-	//パイプライン初期化
+	// シェーダー読み込み成功か失敗か確認
+	bool CheckShaderCompileResult(HRESULT result, ComPtr<ID3DBlob> error = nullptr);
+	// シェーダーのセット
+	HRESULT SetShader();
+	// パイプラインの生成
 	HRESULT CreateGraphicsPipelineForPMD();
-	//ルートシグネチャ初期化
-	HRESULT CreateRootSignature();
+	// 定数バッファ作成
+	HRESULT CreateConstantBuffer();// 定数バッファ作成
 
-	bool CheckShaderCompileResult(HRESULT result, ID3DBlob* error = nullptr);
-
+	
 public:
 	PMDRenderer(std::shared_ptr<Dx12Wrapper> dx12);
 	~PMDRenderer();
 	void Update();
 	void Draw();
-	ID3D12PipelineState* GetPipelineState();
-	ID3D12RootSignature* GetRootSignature();
+	ComPtr<ID3D12PipelineState> GetPipelineState();
+	ComPtr<ID3D12RootSignature> GetRootSignature();
 };
 

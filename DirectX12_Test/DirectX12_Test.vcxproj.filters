@@ -36,6 +36,12 @@
     <ClCompile Include="Dx12Wrapper\Dx12Wrapper.cpp">
       <Filter>Dx12Wrapper</Filter>
     </ClCompile>
+    <ClCompile Include="PMD\PMDRenderer.cpp">
+      <Filter>PMD</Filter>
+    </ClCompile>
+    <ClCompile Include="PMD\PMDActor.cpp">
+      <Filter>PMD</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Shader\BasePixelShader.hlsl">
@@ -56,6 +62,12 @@
     </ClInclude>
     <ClInclude Include="Dx12Wrapper\Dx12Wrapper.h">
       <Filter>Dx12Wrapper</Filter>
+    </ClInclude>
+    <ClInclude Include="PMD\PMDRenderer.h">
+      <Filter>PMD</Filter>
+    </ClInclude>
+    <ClInclude Include="PMD\PMDActor.h">
+      <Filter>PMD</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

@@ -54,17 +54,15 @@ namespace
 	}
 }
 
-void EnableDebugLayer() {
-	ID3D12Debug* debugLayer = nullptr;
-	if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugLayer)))) {
-		debugLayer->EnableDebugLayer();
-		debugLayer->Release();
-	}
+void EnableDebugLayer() 
+{
+	ComPtr<ID3D12Debug> debugLayer = nullptr;
+	auto result = D3D12GetDebugInterface(IID_PPV_ARGS(&debugLayer));
+	debugLayer->EnableDebugLayer();
 }
 
 Dx12Wrapper::Dx12Wrapper(HWND hwnd) {
 #ifdef _DEBUG
-	// デバッグレイヤーをオンに
 	EnableDebugLayer();
 #endif
 
@@ -114,6 +112,12 @@ Dx12Wrapper::Dx12Wrapper(HWND hwnd) {
 
 Dx12Wrapper::~Dx12Wrapper()
 {
+	ComPtr<ID3D12DebugDevice> debugInterface;
+
+	if (SUCCEEDED(_dev.Get()->QueryInterface(debugInterface.ReleaseAndGetAddressOf())))
+	{
+		debugInterface->ReportLiveDeviceObjects(D3D12_RLDO_DETAIL | D3D12_RLDO_IGNORE_INTERNAL);
+	}
 }
 
 void Dx12Wrapper::Update()
@@ -351,7 +355,7 @@ HRESULT Dx12Wrapper::CreateRTV()
 	return result;
 }
 
-ComPtr<ID3D12Resource> Dx12Wrapper::GetTextureByPath(const char* texpath)
+ID3D12Resource* Dx12Wrapper::GetTextureByPath(const char* texpath)
 {
 	auto it = _textureTable.find(texpath);
 	
@@ -359,10 +363,10 @@ ComPtr<ID3D12Resource> Dx12Wrapper::GetTextureByPath(const char* texpath)
 	{
 		//テーブルに内にあったらロードするのではなくマップ内の
 		//リソースを返す
-		return _textureTable[texpath];
+		return _textureTable[texpath].Get();
 	}
 	else {
-		return ComPtr<ID3D12Resource>(LoadTextureFromFile(texpath));
+		return LoadTextureFromFile(texpath);
 	}
 }
 
@@ -371,7 +375,7 @@ void Dx12Wrapper::CreateTextureLoaderTable()
 	_loadLambdaTable["sph"] = _loadLambdaTable["bmp"] =
 	_loadLambdaTable["png"] = _loadLambdaTable["jpg"] =
 	[](const std::wstring& path, TexMetadata* meta, ScratchImage& img)
-		->HRESULT
+	->HRESULT
 	{
 		return LoadFromWICFile(path.c_str(), 0, meta, img);
 	};
@@ -425,19 +429,18 @@ HRESULT Dx12Wrapper::CreateDepthBuffer()
 	ID3D12Resource* depthBuffer = nullptr;
 
 	result = _dev->CreateCommittedResource(
-		&depthHeapProp,
-		D3D12_HEAP_FLAG_NONE,
-		&depthResDesc,
-		D3D12_RESOURCE_STATE_DEPTH_WRITE,
-		&depthClearValue,
-		IID_PPV_ARGS(&depthBuffer)
+				   &depthHeapProp,
+				   D3D12_HEAP_FLAG_NONE,
+				   &depthResDesc,
+				   D3D12_RESOURCE_STATE_DEPTH_WRITE,
+				   &depthClearValue,
+				   IID_PPV_ARGS(&depthBuffer)
 	);
 
 	D3D12_DESCRIPTOR_HEAP_DESC dsvHeapDesc = {};
 
 	dsvHeapDesc.NumDescriptors = 1;
 	dsvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
-
 
 	result = _dev->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(&dsvHeap));
 
@@ -449,9 +452,9 @@ HRESULT Dx12Wrapper::CreateDepthBuffer()
 	dsvDesc.Flags = D3D12_DSV_FLAG_NONE;
 
 	_dev->CreateDepthStencilView(
-		depthBuffer,
-		&dsvDesc,
-		dsvHeap->GetCPUDescriptorHandleForHeapStart());
+		  depthBuffer,
+		  &dsvDesc,
+		  dsvHeap->GetCPUDescriptorHandleForHeapStart());
 
 	return result;
 }
@@ -514,12 +517,12 @@ ID3D12Resource* Dx12Wrapper::LoadTextureFromFile(const char* texpath)
 	ID3D12Resource* texBuff = nullptr;
 
 	result = _dev->CreateCommittedResource(
-		&texHeapProp,
-		D3D12_HEAP_FLAG_NONE,
-		&resDesc,
-		D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
-		nullptr,
-		IID_PPV_ARGS(&texBuff));
+			 &texHeapProp,
+			 D3D12_HEAP_FLAG_NONE,
+			 &resDesc,
+			 D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+			 nullptr,
+			 IID_PPV_ARGS(&texBuff));
 
 	if (FAILED(result))
 	{
@@ -527,11 +530,11 @@ ID3D12Resource* Dx12Wrapper::LoadTextureFromFile(const char* texpath)
 	}
 
 	result = texBuff->WriteToSubresource(
-		0,
-		nullptr,
-		img->pixels,
-		img->rowPitch,
-		img->slicePitch
+		     0,
+		     nullptr,
+		     img->pixels,
+		     img->rowPitch,
+		     img->slicePitch
 	);
 
 	if (FAILED(result))

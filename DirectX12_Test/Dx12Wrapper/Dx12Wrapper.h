@@ -28,16 +28,17 @@ private:
 	ComPtr<IDXGISwapChain4> _swapchain = nullptr;
 	ComPtr<ID3D12Fence> _fence;
 	UINT64 _fenceVal;
-	ID3D12DescriptorHeap* rtvHeaps;
-	ID3D12DescriptorHeap* dsvHeap;
+	ComPtr<ID3D12DescriptorHeap> rtvHeaps;
+	ComPtr<ID3D12DescriptorHeap> dsvHeap;
+
 	// バックバッファ
-	std::vector<ID3D12Resource*> _backBuffers;
+	std::vector<ID3D12Resource*> _backBuffers; // ComPtr
 	// ビューポート
 	std::unique_ptr<D3D12_VIEWPORT> _viewport;
 	// シザー矩形
 	std::unique_ptr<D3D12_RECT> _scissorrect;
 	//ファイル名パスとリソースのマップテーブル
-	std::map<std::string, ID3D12Resource*> _resourceTable;
+	std::map<std::string, ID3D12Resource*> _resourceTable; // ComPtr
 	//テクスチャテーブル
 	std::unordered_map<std::string, ComPtr<ID3D12Resource>> _textureTable;
 	// DXGIまわり初期化
@@ -71,7 +72,7 @@ public:
 
 	///テクスチャパスから必要なテクスチャバッファへのポインタを返す
 	///@param texpath テクスチャファイルパス
-	ComPtr<ID3D12Resource> GetTextureByPath(const char* texpath);
+	ID3D12Resource* GetTextureByPath(const char* texpath);
 
 	ComPtr<ID3D12Device> Device();
 	ComPtr<ID3D12GraphicsCommandList> CommandList();
