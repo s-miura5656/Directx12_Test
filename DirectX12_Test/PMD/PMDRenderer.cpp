@@ -138,24 +138,12 @@ HRESULT PMDRenderer::CreateGraphicsPipelineForPMD()
 	rootSignatureDesc.pParameters = rootparam;// ルートパラメータの先頭アドレス
 	rootSignatureDesc.NumParameters = 2;          // ルートパラメータ数
 
-	D3D12_STATIC_SAMPLER_DESC samplerDesc[2] = {};
+	CD3DX12_STATIC_SAMPLER_DESC samplerDesc[2] = {};
 
-	samplerDesc[0].AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-	samplerDesc[0].AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-	samplerDesc[0].AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-	samplerDesc[0].BorderColor = D3D12_STATIC_BORDER_COLOR_OPAQUE_BLACK;
-	samplerDesc[0].Filter = D3D12_FILTER_MINIMUM_MIN_MAG_MIP_POINT;
-	samplerDesc[0].MaxLOD = D3D12_FLOAT32_MAX;
-	samplerDesc[0].MinLOD = 0.0f;
-	samplerDesc[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-	samplerDesc[0].ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
-	samplerDesc[0].ShaderRegister = 0;
-
-	samplerDesc[1] = samplerDesc[0];
-	samplerDesc[1].AddressU = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
-	samplerDesc[1].AddressV = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
-	samplerDesc[1].AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
-	samplerDesc[1].ShaderRegister = 1;
+	samplerDesc[0].Init(0);
+	samplerDesc[1].Init(1, D3D12_FILTER_ANISOTROPIC, 
+						   D3D12_TEXTURE_ADDRESS_MODE_CLAMP, 
+						   D3D12_TEXTURE_ADDRESS_MODE_CLAMP);
 
 	rootSignatureDesc.pStaticSamplers = samplerDesc;
 	rootSignatureDesc.NumStaticSamplers = 2;
