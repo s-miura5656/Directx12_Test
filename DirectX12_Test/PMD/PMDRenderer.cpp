@@ -130,32 +130,10 @@ HRESULT PMDRenderer::CreateGraphicsPipelineForPMD()
 	descTblRange[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 1);
 	descTblRange[2].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 4, 0);
 
-//	descTblRange[0].NumDescriptors = 1;
-//	descTblRange[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
-//	descTblRange[0].BaseShaderRegister = 0;
-//	descTblRange[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
-//
-//	descTblRange[1].NumDescriptors = 1;
-//	descTblRange[1].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
-//	descTblRange[1].BaseShaderRegister = 1;
-//	descTblRange[1].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
-//
-//	descTblRange[2].NumDescriptors = 4;
-//	descTblRange[2].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-//	descTblRange[2].BaseShaderRegister = 0;
-//	descTblRange[2].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+	CD3DX12_ROOT_PARAMETER rootparam[2] = {};
 
-	D3D12_ROOT_PARAMETER rootparam[2] = {};
-
-	rootparam[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-	rootparam[0].DescriptorTable.pDescriptorRanges = &descTblRange[0];
-	rootparam[0].DescriptorTable.NumDescriptorRanges = 1;
-	rootparam[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-
-	rootparam[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-	rootparam[1].DescriptorTable.pDescriptorRanges = &descTblRange[1];
-	rootparam[1].DescriptorTable.NumDescriptorRanges = 2;
-	rootparam[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+	rootparam[0].InitAsDescriptorTable(1, &descTblRange[0]);
+	rootparam[1].InitAsDescriptorTable(2, &descTblRange[1]);
 
 	rootSignatureDesc.pParameters = rootparam;// ルートパラメータの先頭アドレス
 	rootSignatureDesc.NumParameters = 2;          // ルートパラメータ数
