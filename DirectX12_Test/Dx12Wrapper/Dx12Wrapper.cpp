@@ -267,10 +267,10 @@ HRESULT Dx12Wrapper::InitializeCommand()
 
 	D3D12_COMMAND_QUEUE_DESC cmdQueueDesc = {};
 
-	cmdQueueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE; // タイムアウトなし
+	cmdQueueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;							// タイムアウトなし
 	cmdQueueDesc.NodeMask = 0;
-	cmdQueueDesc.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL; // プライオリティ特に指定なし
-	cmdQueueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT; // ここはコマンドリストと合わせてください
+	cmdQueueDesc.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;				// プライオリティ特に指定なし
+	cmdQueueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;							// ここはコマンドリストと合わせてください
 	result = _dev->CreateCommandQueue(&cmdQueueDesc, IID_PPV_ARGS(&_cmdQueue)); // コマンドキュー生成
 
 	assert(SUCCEEDED(result));

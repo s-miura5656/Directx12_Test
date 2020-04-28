@@ -124,22 +124,26 @@ HRESULT PMDRenderer::CreateGraphicsPipelineForPMD()
 	D3D12_ROOT_SIGNATURE_DESC rootSignatureDesc = {};
 	rootSignatureDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 
-	D3D12_DESCRIPTOR_RANGE descTblRange[3] = {};//テクスチャと定数の２つ
+	CD3DX12_DESCRIPTOR_RANGE descTblRange[3] = {};//テクスチャと定数の２つ
 
-	descTblRange[0].NumDescriptors = 1;
-	descTblRange[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
-	descTblRange[0].BaseShaderRegister = 0;
-	descTblRange[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+	descTblRange[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0);
+	descTblRange[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 1);
+	descTblRange[2].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 4, 0);
 
-	descTblRange[1].NumDescriptors = 1;
-	descTblRange[1].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
-	descTblRange[1].BaseShaderRegister = 1;
-	descTblRange[1].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
-
-	descTblRange[2].NumDescriptors = 4;
-	descTblRange[2].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-	descTblRange[2].BaseShaderRegister = 0;
-	descTblRange[2].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+//	descTblRange[0].NumDescriptors = 1;
+//	descTblRange[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
+//	descTblRange[0].BaseShaderRegister = 0;
+//	descTblRange[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+//
+//	descTblRange[1].NumDescriptors = 1;
+//	descTblRange[1].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
+//	descTblRange[1].BaseShaderRegister = 1;
+//	descTblRange[1].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+//
+//	descTblRange[2].NumDescriptors = 4;
+//	descTblRange[2].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+//	descTblRange[2].BaseShaderRegister = 0;
+//	descTblRange[2].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
 	D3D12_ROOT_PARAMETER rootparam[2] = {};
 
