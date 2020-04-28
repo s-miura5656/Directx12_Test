@@ -81,16 +81,11 @@ namespace
 
 ID3D12Resource* PMDActor::CreateWhiteTexture()
 {
-	// WriteToSubresource で転送する用のヒープ設定
-	D3D12_HEAP_PROPERTIES texHeapProp = {};
-
-	texHeapProp.Type = D3D12_HEAP_TYPE_CUSTOM;
-	texHeapProp.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;
-	texHeapProp.MemoryPoolPreference = D3D12_MEMORY_POOL_L0;
-	texHeapProp.CreationNodeMask = 0;
-	texHeapProp.VisibleNodeMask = 0;
-
 	auto resDesc = CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_R8G8B8A8_UNORM, 4, 4);
+
+	// WriteToSubresource で転送する用のヒープ設定
+	auto texHeapProp = CD3DX12_HEAP_PROPERTIES(D3D12_CPU_PAGE_PROPERTY_WRITE_BACK, 
+											   D3D12_MEMORY_POOL_L0);
 
 	// バッファー作成
 	ID3D12Resource* whiteBuff = nullptr;
@@ -118,27 +113,22 @@ ID3D12Resource* PMDActor::CreateWhiteTexture()
 
 ID3D12Resource* PMDActor::CreateBlackTexture()
 {
-	// WriteToSubresource で転送する用のヒープ設定
-	D3D12_HEAP_PROPERTIES texHeapProp = {};
-
-	texHeapProp.Type = D3D12_HEAP_TYPE_CUSTOM;
-	texHeapProp.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;
-	texHeapProp.MemoryPoolPreference = D3D12_MEMORY_POOL_L0;
-	texHeapProp.CreationNodeMask = 0;
-	texHeapProp.VisibleNodeMask = 0;
-
 	auto resDesc = CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_R8G8B8A8_UNORM, 4, 4);
+
+	// WriteToSubresource で転送する用のヒープ設定
+	auto texHeapProp = CD3DX12_HEAP_PROPERTIES(D3D12_CPU_PAGE_PROPERTY_WRITE_BACK,
+											   D3D12_MEMORY_POOL_L0);
 
 	// バッファー作成
 	ID3D12Resource* blackBuff = nullptr;
 
 	auto result = _dx12->Device()->CreateCommittedResource(
-		&texHeapProp,
-		D3D12_HEAP_FLAG_NONE,
-		&resDesc,
-		D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
-		nullptr,
-		IID_PPV_ARGS(&blackBuff));
+		 &texHeapProp,
+		 D3D12_HEAP_FLAG_NONE,
+		 &resDesc,
+		 D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+		 nullptr,
+		 IID_PPV_ARGS(&blackBuff));
 
 	if (FAILED(result))
 		return nullptr;
@@ -156,14 +146,12 @@ ID3D12Resource* PMDActor::CreateGrayGradationTexture()
 {
 	auto resDesc = CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_R8G8B8A8_UNORM, 4, 256);
 
-	D3D12_HEAP_PROPERTIES texHeapProp = {};
-	texHeapProp.Type = D3D12_HEAP_TYPE_CUSTOM;//特殊な設定なのでdefaultでもuploadでもなく
-	texHeapProp.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;//ライトバックで
-	texHeapProp.MemoryPoolPreference = D3D12_MEMORY_POOL_L0;//転送がL0つまりCPU側から直で
-	texHeapProp.CreationNodeMask = 0;//単一アダプタのため0
-	texHeapProp.VisibleNodeMask = 0;//単一アダプタのため0
+	// WriteToSubresource で転送する用のヒープ設定
+	auto texHeapProp = CD3DX12_HEAP_PROPERTIES(D3D12_CPU_PAGE_PROPERTY_WRITE_BACK,
+											   D3D12_MEMORY_POOL_L0);
 
 	ID3D12Resource* gradBuff = nullptr;
+
 	auto result = _dx12->Device()->CreateCommittedResource(
 				  &texHeapProp,
 				  D3D12_HEAP_FLAG_NONE,//特に指定なし
@@ -202,6 +190,7 @@ ID3D12Resource* PMDActor::CreateGrayGradationTexture()
 	return gradBuff;
 }
 
+// @param モデルパス
 HRESULT PMDActor::LoadPMDFile(const char* path)
 {
 	HRESULT result = S_OK;
@@ -362,6 +351,7 @@ HRESULT PMDActor::LoadPMDFile(const char* path)
 			spaResources[i] = _dx12->GetTextureByPath(spaFilePath.c_str());
 		}
 	}
+
 	fclose(fp);
 
 	CreateVertexBuffer();

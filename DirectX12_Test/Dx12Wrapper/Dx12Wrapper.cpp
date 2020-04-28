@@ -404,27 +404,17 @@ HRESULT Dx12Wrapper::CreateDepthBuffer()
 	result = _swapchain->GetDesc1(&desc);
 
 	// 深度バッファの作成
-	D3D12_RESOURCE_DESC depthResDesc = {};
-
-	depthResDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;  // 二次元のテクスチャデータ
-	depthResDesc.Width = desc.Width;							  // 幅と高さはレンダーターゲットと同じ
-	depthResDesc.Height = desc.Height;						      // 同上
-	depthResDesc.DepthOrArraySize = 1;							  // テクスチャ配列でも、3D テクスチャでもない
-	depthResDesc.Format = DXGI_FORMAT_D32_FLOAT;				  // 深度値書き込み用フォーマット
-	depthResDesc.SampleDesc.Count = 1;							  // サンプルは 1 ピクセル当たり 1 つ
-	depthResDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL; // デプスステンシルとして使用
+	D3D12_RESOURCE_DESC depthResDesc = CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_D32_FLOAT, 
+		                                                      desc.Width, 
+															  desc.Height, 
+															  1, 0, 1, 0,
+															  D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL);
 
 	// 深度値用ヒーププロパティ
-	D3D12_HEAP_PROPERTIES depthHeapProp = {};
-
-	depthHeapProp.Type = D3D12_HEAP_TYPE_DEFAULT;
-	depthHeapProp.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
-	depthHeapProp.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+	D3D12_HEAP_PROPERTIES depthHeapProp = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
 
 	// このクリアバリューが重要な意味を持つ
-	D3D12_CLEAR_VALUE depthClearValue = {};
-	depthClearValue.DepthStencil.Depth = 1.0f; // 深さ 1.0 ( 最大値 )でクリア
-	depthClearValue.Format = DXGI_FORMAT_D32_FLOAT; // 32 ビット float 値としてクリア
+	D3D12_CLEAR_VALUE depthClearValue = CD3DX12_CLEAR_VALUE(DXGI_FORMAT_D32_FLOAT, 1, 0);
 
 	ID3D12Resource* depthBuffer = nullptr;
 
