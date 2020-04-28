@@ -90,18 +90,7 @@ ID3D12Resource* PMDActor::CreateWhiteTexture()
 	texHeapProp.CreationNodeMask = 0;
 	texHeapProp.VisibleNodeMask = 0;
 
-	D3D12_RESOURCE_DESC resDesc = {};
-
-	resDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-	resDesc.Width = 4;
-	resDesc.Height = 4;
-	resDesc.DepthOrArraySize = 1;
-	resDesc.SampleDesc.Count = 1;
-	resDesc.SampleDesc.Quality = 0;
-	resDesc.MipLevels = 1;
-	resDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-	resDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
-	resDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
+	auto resDesc = CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_R8G8B8A8_UNORM, 4, 4);
 
 	// バッファー作成
 	ID3D12Resource* whiteBuff = nullptr;
@@ -138,18 +127,7 @@ ID3D12Resource* PMDActor::CreateBlackTexture()
 	texHeapProp.CreationNodeMask = 0;
 	texHeapProp.VisibleNodeMask = 0;
 
-	D3D12_RESOURCE_DESC resDesc = {};
-
-	resDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-	resDesc.Width = 4;
-	resDesc.Height = 4;
-	resDesc.DepthOrArraySize = 1;
-	resDesc.SampleDesc.Count = 1;
-	resDesc.SampleDesc.Quality = 0;
-	resDesc.MipLevels = 1;
-	resDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-	resDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
-	resDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
+	auto resDesc = CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_R8G8B8A8_UNORM, 4, 4);
 
 	// バッファー作成
 	ID3D12Resource* blackBuff = nullptr;
@@ -176,18 +154,7 @@ ID3D12Resource* PMDActor::CreateBlackTexture()
 
 ID3D12Resource* PMDActor::CreateGrayGradationTexture()
 {
-	D3D12_RESOURCE_DESC resDesc = {};
-	resDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-	resDesc.Width = 4;
-	resDesc.Height = 256;
-	resDesc.DepthOrArraySize = 1;
-	resDesc.SampleDesc.Count = 1;
-	resDesc.SampleDesc.Quality = 0;
-	resDesc.MipLevels = 1;
-	resDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-	resDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;//レイアウトについては決定しない
-	resDesc.Flags = D3D12_RESOURCE_FLAG_NONE;//とくにフラグなし
-
+	auto resDesc = CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_R8G8B8A8_UNORM, 4, 256);
 
 	D3D12_HEAP_PROPERTIES texHeapProp = {};
 	texHeapProp.Type = D3D12_HEAP_TYPE_CUSTOM;//特殊な設定なのでdefaultでもuploadでもなく
@@ -436,12 +403,12 @@ HRESULT PMDActor::CreateIndexBuffer()
 	HRESULT result = S_OK;
 
 	result = _dx12->Device()->CreateCommittedResource(
-		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
-		D3D12_HEAP_FLAG_NONE,
-		&CD3DX12_RESOURCE_DESC::Buffer(indices.size() * sizeof(indices[0])),
-		D3D12_RESOURCE_STATE_GENERIC_READ,
-		nullptr,
-		IID_PPV_ARGS(&idxBuff)
+			 &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+			 D3D12_HEAP_FLAG_NONE,
+			 &CD3DX12_RESOURCE_DESC::Buffer(indices.size() * sizeof(indices[0])),
+			 D3D12_RESOURCE_STATE_GENERIC_READ,
+			 nullptr,
+			 IID_PPV_ARGS(&idxBuff)
 	);
 
 	unsigned short* mappedIndex = nullptr;
@@ -467,12 +434,12 @@ HRESULT PMDActor::CreateMaterialBuffer()
 	ID3D12Resource* materialBuff = nullptr;
 
 	result = _dx12->Device()->CreateCommittedResource(
-		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
-		D3D12_HEAP_FLAG_NONE,
-		&CD3DX12_RESOURCE_DESC::Buffer(materialBuffSize * materialNum),
-		D3D12_RESOURCE_STATE_GENERIC_READ,
-		nullptr,
-		IID_PPV_ARGS(&materialBuff));
+			 &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+			 D3D12_HEAP_FLAG_NONE,
+			 &CD3DX12_RESOURCE_DESC::Buffer(materialBuffSize * materialNum),
+			 D3D12_RESOURCE_STATE_GENERIC_READ,
+			 nullptr,
+			 IID_PPV_ARGS(&materialBuff));
 
 	char* mapMaterial = nullptr;
 
