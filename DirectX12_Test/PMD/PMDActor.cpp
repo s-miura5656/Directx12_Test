@@ -81,27 +81,11 @@ namespace
 
 ID3D12Resource* PMDActor::CreateWhiteTexture()
 {
+	auto resDesc = CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_R8G8B8A8_UNORM, 4, 4);
+
 	// WriteToSubresource で転送する用のヒープ設定
-	D3D12_HEAP_PROPERTIES texHeapProp = {};
-
-	texHeapProp.Type = D3D12_HEAP_TYPE_CUSTOM;
-	texHeapProp.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;
-	texHeapProp.MemoryPoolPreference = D3D12_MEMORY_POOL_L0;
-	texHeapProp.CreationNodeMask = 0;
-	texHeapProp.VisibleNodeMask = 0;
-
-	D3D12_RESOURCE_DESC resDesc = {};
-
-	resDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-	resDesc.Width = 4;
-	resDesc.Height = 4;
-	resDesc.DepthOrArraySize = 1;
-	resDesc.SampleDesc.Count = 1;
-	resDesc.SampleDesc.Quality = 0;
-	resDesc.MipLevels = 1;
-	resDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-	resDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
-	resDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
+	auto texHeapProp = CD3DX12_HEAP_PROPERTIES(D3D12_CPU_PAGE_PROPERTY_WRITE_BACK, 
+											   D3D12_MEMORY_POOL_L0);
 
 	// バッファー作成
 	ID3D12Resource* whiteBuff = nullptr;
@@ -129,38 +113,22 @@ ID3D12Resource* PMDActor::CreateWhiteTexture()
 
 ID3D12Resource* PMDActor::CreateBlackTexture()
 {
+	auto resDesc = CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_R8G8B8A8_UNORM, 4, 4);
+
 	// WriteToSubresource で転送する用のヒープ設定
-	D3D12_HEAP_PROPERTIES texHeapProp = {};
-
-	texHeapProp.Type = D3D12_HEAP_TYPE_CUSTOM;
-	texHeapProp.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;
-	texHeapProp.MemoryPoolPreference = D3D12_MEMORY_POOL_L0;
-	texHeapProp.CreationNodeMask = 0;
-	texHeapProp.VisibleNodeMask = 0;
-
-	D3D12_RESOURCE_DESC resDesc = {};
-
-	resDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-	resDesc.Width = 4;
-	resDesc.Height = 4;
-	resDesc.DepthOrArraySize = 1;
-	resDesc.SampleDesc.Count = 1;
-	resDesc.SampleDesc.Quality = 0;
-	resDesc.MipLevels = 1;
-	resDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-	resDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
-	resDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
+	auto texHeapProp = CD3DX12_HEAP_PROPERTIES(D3D12_CPU_PAGE_PROPERTY_WRITE_BACK,
+											   D3D12_MEMORY_POOL_L0);
 
 	// バッファー作成
 	ID3D12Resource* blackBuff = nullptr;
 
 	auto result = _dx12->Device()->CreateCommittedResource(
-		&texHeapProp,
-		D3D12_HEAP_FLAG_NONE,
-		&resDesc,
-		D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
-		nullptr,
-		IID_PPV_ARGS(&blackBuff));
+		 &texHeapProp,
+		 D3D12_HEAP_FLAG_NONE,
+		 &resDesc,
+		 D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+		 nullptr,
+		 IID_PPV_ARGS(&blackBuff));
 
 	if (FAILED(result))
 		return nullptr;
@@ -176,27 +144,14 @@ ID3D12Resource* PMDActor::CreateBlackTexture()
 
 ID3D12Resource* PMDActor::CreateGrayGradationTexture()
 {
-	D3D12_RESOURCE_DESC resDesc = {};
-	resDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-	resDesc.Width = 4;
-	resDesc.Height = 256;
-	resDesc.DepthOrArraySize = 1;
-	resDesc.SampleDesc.Count = 1;
-	resDesc.SampleDesc.Quality = 0;
-	resDesc.MipLevels = 1;
-	resDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-	resDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;//レイアウトについては決定しない
-	resDesc.Flags = D3D12_RESOURCE_FLAG_NONE;//とくにフラグなし
+	auto resDesc = CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_R8G8B8A8_UNORM, 4, 256);
 
-
-	D3D12_HEAP_PROPERTIES texHeapProp = {};
-	texHeapProp.Type = D3D12_HEAP_TYPE_CUSTOM;//特殊な設定なのでdefaultでもuploadでもなく
-	texHeapProp.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;//ライトバックで
-	texHeapProp.MemoryPoolPreference = D3D12_MEMORY_POOL_L0;//転送がL0つまりCPU側から直で
-	texHeapProp.CreationNodeMask = 0;//単一アダプタのため0
-	texHeapProp.VisibleNodeMask = 0;//単一アダプタのため0
+	// WriteToSubresource で転送する用のヒープ設定
+	auto texHeapProp = CD3DX12_HEAP_PROPERTIES(D3D12_CPU_PAGE_PROPERTY_WRITE_BACK,
+											   D3D12_MEMORY_POOL_L0);
 
 	ID3D12Resource* gradBuff = nullptr;
+
 	auto result = _dx12->Device()->CreateCommittedResource(
 				  &texHeapProp,
 				  D3D12_HEAP_FLAG_NONE,//特に指定なし
@@ -235,6 +190,7 @@ ID3D12Resource* PMDActor::CreateGrayGradationTexture()
 	return gradBuff;
 }
 
+// @param モデルパス
 HRESULT PMDActor::LoadPMDFile(const char* path)
 {
 	HRESULT result = S_OK;
@@ -250,6 +206,7 @@ HRESULT PMDActor::LoadPMDFile(const char* path)
 	char signature[3] = {}; // シグネチャ
 	PMDheader pmdheader = {};
 	std::string strModelPath = path;
+
 	auto fp = fopen(strModelPath.c_str(), "rb");
 
 	fread(signature, sizeof(signature), 1, fp);
@@ -395,6 +352,28 @@ HRESULT PMDActor::LoadPMDFile(const char* path)
 			spaResources[i] = _dx12->GetTextureByPath(spaFilePath.c_str());
 		}
 	}
+
+#pragma pack(1)
+	// 読み込み用ボーン構造体
+	struct PMDBone
+	{
+		char boneName[20];			 // ボーン名
+		unsigned short parentNo; // 親ボーン番号
+		unsigned short nextNo;	 // 先端のボーン番号
+		unsigned char type;		 // ボーン種別
+		unsigned short ikBoneNo; // IK ボーン番号
+		XMFLOAT3 pos;			 // ボーンの基準座標店
+	};
+#pragma pack()
+
+	unsigned short boneNum = 0;
+
+	fread(&boneNum, sizeof(boneNum), 1, fp);
+
+	std::vector<PMDBone> pmdBones(boneNum);
+
+	fread(pmdBones.data(), sizeof(PMDBone), boneNum, fp);
+
 	fclose(fp);
 
 	CreateVertexBuffer();
@@ -436,12 +415,12 @@ HRESULT PMDActor::CreateIndexBuffer()
 	HRESULT result = S_OK;
 
 	result = _dx12->Device()->CreateCommittedResource(
-		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
-		D3D12_HEAP_FLAG_NONE,
-		&CD3DX12_RESOURCE_DESC::Buffer(indices.size() * sizeof(indices[0])),
-		D3D12_RESOURCE_STATE_GENERIC_READ,
-		nullptr,
-		IID_PPV_ARGS(&idxBuff)
+			 &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+			 D3D12_HEAP_FLAG_NONE,
+			 &CD3DX12_RESOURCE_DESC::Buffer(indices.size() * sizeof(indices[0])),
+			 D3D12_RESOURCE_STATE_GENERIC_READ,
+			 nullptr,
+			 IID_PPV_ARGS(&idxBuff)
 	);
 
 	unsigned short* mappedIndex = nullptr;
@@ -467,12 +446,12 @@ HRESULT PMDActor::CreateMaterialBuffer()
 	ID3D12Resource* materialBuff = nullptr;
 
 	result = _dx12->Device()->CreateCommittedResource(
-		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
-		D3D12_HEAP_FLAG_NONE,
-		&CD3DX12_RESOURCE_DESC::Buffer(materialBuffSize * materialNum),
-		D3D12_RESOURCE_STATE_GENERIC_READ,
-		nullptr,
-		IID_PPV_ARGS(&materialBuff));
+			 &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+			 D3D12_HEAP_FLAG_NONE,
+			 &CD3DX12_RESOURCE_DESC::Buffer(materialBuffSize * materialNum),
+			 D3D12_RESOURCE_STATE_GENERIC_READ,
+			 nullptr,
+			 IID_PPV_ARGS(&materialBuff));
 
 	char* mapMaterial = nullptr;
 

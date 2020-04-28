@@ -80,8 +80,8 @@ HRESULT PMDRenderer::CreateGraphicsPipelineForPMD()
 					 D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
 		{"WEIGHT",   0, DXGI_FORMAT_R8_UINT, 0, D3D12_APPEND_ALIGNED_ELEMENT,
 					 D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
-					 //		{"EDGEFLT",  0, DXGI_FORMAT_R8_UINT, 0, D3D12_APPEND_ALIGNED_ELEMENT,
-					 //					 D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+//		{"EDGEFLT",  0, DXGI_FORMAT_R8_UINT, 0, D3D12_APPEND_ALIGNED_ELEMENT,
+//					 D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
 	};
 	/*------------------------------------------------------------*/
 
@@ -124,56 +124,26 @@ HRESULT PMDRenderer::CreateGraphicsPipelineForPMD()
 	D3D12_ROOT_SIGNATURE_DESC rootSignatureDesc = {};
 	rootSignatureDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 
-	D3D12_DESCRIPTOR_RANGE descTblRange[3] = {};//テクスチャと定数の２つ
+	CD3DX12_DESCRIPTOR_RANGE descTblRange[3] = {};//テクスチャと定数の２つ
 
-	descTblRange[0].NumDescriptors = 1;
-	descTblRange[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
-	descTblRange[0].BaseShaderRegister = 0;
-	descTblRange[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+	descTblRange[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0);
+	descTblRange[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 1);
+	descTblRange[2].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 4, 0);
 
-	descTblRange[1].NumDescriptors = 1;
-	descTblRange[1].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
-	descTblRange[1].BaseShaderRegister = 1;
-	descTblRange[1].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+	CD3DX12_ROOT_PARAMETER rootparam[2] = {};
 
-	descTblRange[2].NumDescriptors = 4;
-	descTblRange[2].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-	descTblRange[2].BaseShaderRegister = 0;
-	descTblRange[2].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
-
-	D3D12_ROOT_PARAMETER rootparam[2] = {};
-
-	rootparam[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-	rootparam[0].DescriptorTable.pDescriptorRanges = &descTblRange[0];
-	rootparam[0].DescriptorTable.NumDescriptorRanges = 1;
-	rootparam[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-
-	rootparam[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-	rootparam[1].DescriptorTable.pDescriptorRanges = &descTblRange[1];
-	rootparam[1].DescriptorTable.NumDescriptorRanges = 2;
-	rootparam[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+	rootparam[0].InitAsDescriptorTable(1, &descTblRange[0]);
+	rootparam[1].InitAsDescriptorTable(2, &descTblRange[1]);
 
 	rootSignatureDesc.pParameters = rootparam;// ルートパラメータの先頭アドレス
 	rootSignatureDesc.NumParameters = 2;          // ルートパラメータ数
 
-	D3D12_STATIC_SAMPLER_DESC samplerDesc[2] = {};
+	CD3DX12_STATIC_SAMPLER_DESC samplerDesc[2] = {};
 
-	samplerDesc[0].AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-	samplerDesc[0].AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-	samplerDesc[0].AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-	samplerDesc[0].BorderColor = D3D12_STATIC_BORDER_COLOR_OPAQUE_BLACK;
-	samplerDesc[0].Filter = D3D12_FILTER_MINIMUM_MIN_MAG_MIP_POINT;
-	samplerDesc[0].MaxLOD = D3D12_FLOAT32_MAX;
-	samplerDesc[0].MinLOD = 0.0f;
-	samplerDesc[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-	samplerDesc[0].ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
-	samplerDesc[0].ShaderRegister = 0;
-
-	samplerDesc[1] = samplerDesc[0];
-	samplerDesc[1].AddressU = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
-	samplerDesc[1].AddressV = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
-	samplerDesc[1].AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
-	samplerDesc[1].ShaderRegister = 1;
+	samplerDesc[0].Init(0);
+	samplerDesc[1].Init(1, D3D12_FILTER_ANISOTROPIC, 
+						   D3D12_TEXTURE_ADDRESS_MODE_CLAMP, 
+						   D3D12_TEXTURE_ADDRESS_MODE_CLAMP);
 
 	rootSignatureDesc.pStaticSamplers = samplerDesc;
 	rootSignatureDesc.NumStaticSamplers = 2;
@@ -181,16 +151,16 @@ HRESULT PMDRenderer::CreateGraphicsPipelineForPMD()
 	ComPtr<ID3DBlob> rootSigBlob = nullptr;
 
 	result = D3D12SerializeRootSignature(
-		&rootSignatureDesc,
-		D3D_ROOT_SIGNATURE_VERSION_1_0,
-		rootSigBlob.ReleaseAndGetAddressOf(),
-		errorBlob.ReleaseAndGetAddressOf());
+			 &rootSignatureDesc,
+			 D3D_ROOT_SIGNATURE_VERSION_1_0,
+			 rootSigBlob.ReleaseAndGetAddressOf(),
+			 errorBlob.ReleaseAndGetAddressOf());
 
 	result = _dx12->Device()->CreateRootSignature(
-		0,
-		rootSigBlob->GetBufferPointer(),
-		rootSigBlob->GetBufferSize(),
-		IID_PPV_ARGS(&rootsignature));
+		     0,
+		     rootSigBlob->GetBufferPointer(),
+		     rootSigBlob->GetBufferSize(),
+		     IID_PPV_ARGS(&rootsignature));
 
 	gpipeline.pRootSignature = rootsignature.Get();
 

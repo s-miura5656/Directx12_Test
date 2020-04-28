@@ -267,10 +267,10 @@ HRESULT Dx12Wrapper::InitializeCommand()
 
 	D3D12_COMMAND_QUEUE_DESC cmdQueueDesc = {};
 
-	cmdQueueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE; // タイムアウトなし
+	cmdQueueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;							// タイムアウトなし
 	cmdQueueDesc.NodeMask = 0;
-	cmdQueueDesc.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL; // プライオリティ特に指定なし
-	cmdQueueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT; // ここはコマンドリストと合わせてください
+	cmdQueueDesc.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;				// プライオリティ特に指定なし
+	cmdQueueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;							// ここはコマンドリストと合わせてください
 	result = _dev->CreateCommandQueue(&cmdQueueDesc, IID_PPV_ARGS(&_cmdQueue)); // コマンドキュー生成
 
 	assert(SUCCEEDED(result));
@@ -404,27 +404,17 @@ HRESULT Dx12Wrapper::CreateDepthBuffer()
 	result = _swapchain->GetDesc1(&desc);
 
 	// 深度バッファの作成
-	D3D12_RESOURCE_DESC depthResDesc = {};
-
-	depthResDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;  // 二次元のテクスチャデータ
-	depthResDesc.Width = desc.Width;							  // 幅と高さはレンダーターゲットと同じ
-	depthResDesc.Height = desc.Height;						      // 同上
-	depthResDesc.DepthOrArraySize = 1;							  // テクスチャ配列でも、3D テクスチャでもない
-	depthResDesc.Format = DXGI_FORMAT_D32_FLOAT;				  // 深度値書き込み用フォーマット
-	depthResDesc.SampleDesc.Count = 1;							  // サンプルは 1 ピクセル当たり 1 つ
-	depthResDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL; // デプスステンシルとして使用
+	D3D12_RESOURCE_DESC depthResDesc = CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_D32_FLOAT, 
+		                                                      desc.Width, 
+															  desc.Height, 
+															  1, 0, 1, 0,
+															  D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL);
 
 	// 深度値用ヒーププロパティ
-	D3D12_HEAP_PROPERTIES depthHeapProp = {};
-
-	depthHeapProp.Type = D3D12_HEAP_TYPE_DEFAULT;
-	depthHeapProp.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
-	depthHeapProp.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+	D3D12_HEAP_PROPERTIES depthHeapProp = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
 
 	// このクリアバリューが重要な意味を持つ
-	D3D12_CLEAR_VALUE depthClearValue = {};
-	depthClearValue.DepthStencil.Depth = 1.0f; // 深さ 1.0 ( 最大値 )でクリア
-	depthClearValue.Format = DXGI_FORMAT_D32_FLOAT; // 32 ビット float 値としてクリア
+	D3D12_CLEAR_VALUE depthClearValue = CD3DX12_CLEAR_VALUE(DXGI_FORMAT_D32_FLOAT, 1, 0);
 
 	ID3D12Resource* depthBuffer = nullptr;
 
@@ -492,26 +482,14 @@ ID3D12Resource* Dx12Wrapper::LoadTextureFromFile(const char* texpath)
 	auto img = scratchImg.GetImage(0, 0, 0);
 
 	// WriteToSubresource で転送する用のヒープ設定
-	D3D12_HEAP_PROPERTIES texHeapProp = {};
+	D3D12_HEAP_PROPERTIES texHeapProp = CD3DX12_HEAP_PROPERTIES(D3D12_CPU_PAGE_PROPERTY_WRITE_BACK, 
+																D3D12_MEMORY_POOL_L0, 0, 0);
 
-	texHeapProp.Type = D3D12_HEAP_TYPE_CUSTOM;
-	texHeapProp.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;
-	texHeapProp.MemoryPoolPreference = D3D12_MEMORY_POOL_L0;
-	texHeapProp.CreationNodeMask = 0;
-	texHeapProp.VisibleNodeMask = 0;
-
-	D3D12_RESOURCE_DESC resDesc = {};
-
-	resDesc.Format = metadata.format;
-	resDesc.Width = metadata.width;
-	resDesc.Height = metadata.height;
-	resDesc.DepthOrArraySize = metadata.arraySize;
-	resDesc.SampleDesc.Count = 1;
-	resDesc.SampleDesc.Quality = 0;
-	resDesc.MipLevels = metadata.mipLevels;
-	resDesc.Dimension = static_cast<D3D12_RESOURCE_DIMENSION>(metadata.dimension);
-	resDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
-	resDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
+	D3D12_RESOURCE_DESC resDesc = CD3DX12_RESOURCE_DESC::Tex2D(metadata.format, 
+															   metadata.width, 
+															   metadata.height, 
+															   metadata.arraySize, 
+															   metadata.mipLevels, 1, 0);
 
 	// バッファー作成
 	ID3D12Resource* texBuff = nullptr;
@@ -547,11 +525,8 @@ ID3D12Resource* Dx12Wrapper::LoadTextureFromFile(const char* texpath)
 	return texBuff;
 }
 
-
 ComPtr<ID3D12Device> Dx12Wrapper::Device() { return _dev; }
 
 ComPtr<ID3D12GraphicsCommandList> Dx12Wrapper::CommandList() { return _cmdList; }
 
 ComPtr<IDXGISwapChain4> Dx12Wrapper::SwapChain() { return _swapchain; }
-
-
