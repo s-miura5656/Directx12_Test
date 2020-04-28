@@ -206,6 +206,7 @@ HRESULT PMDActor::LoadPMDFile(const char* path)
 	char signature[3] = {}; // シグネチャ
 	PMDheader pmdheader = {};
 	std::string strModelPath = path;
+
 	auto fp = fopen(strModelPath.c_str(), "rb");
 
 	fread(signature, sizeof(signature), 1, fp);
@@ -351,6 +352,27 @@ HRESULT PMDActor::LoadPMDFile(const char* path)
 			spaResources[i] = _dx12->GetTextureByPath(spaFilePath.c_str());
 		}
 	}
+
+#pragma pack(1)
+	// 読み込み用ボーン構造体
+	struct PMDBone
+	{
+		char boneName[20];			 // ボーン名
+		unsigned short parentNo; // 親ボーン番号
+		unsigned short nextNo;	 // 先端のボーン番号
+		unsigned char type;		 // ボーン種別
+		unsigned short ikBoneNo; // IK ボーン番号
+		XMFLOAT3 pos;			 // ボーンの基準座標店
+	};
+#pragma pack()
+
+	unsigned short boneNum = 0;
+
+	fread(&boneNum, sizeof(boneNum), 1, fp);
+
+	std::vector<PMDBone> pmdBones(boneNum);
+
+	fread(pmdBones.data(), sizeof(PMDBone), boneNum, fp);
 
 	fclose(fp);
 

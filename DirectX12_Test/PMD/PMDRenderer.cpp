@@ -80,8 +80,8 @@ HRESULT PMDRenderer::CreateGraphicsPipelineForPMD()
 					 D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
 		{"WEIGHT",   0, DXGI_FORMAT_R8_UINT, 0, D3D12_APPEND_ALIGNED_ELEMENT,
 					 D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
-					 //		{"EDGEFLT",  0, DXGI_FORMAT_R8_UINT, 0, D3D12_APPEND_ALIGNED_ELEMENT,
-					 //					 D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+//		{"EDGEFLT",  0, DXGI_FORMAT_R8_UINT, 0, D3D12_APPEND_ALIGNED_ELEMENT,
+//					 D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
 	};
 	/*------------------------------------------------------------*/
 
@@ -151,16 +151,16 @@ HRESULT PMDRenderer::CreateGraphicsPipelineForPMD()
 	ComPtr<ID3DBlob> rootSigBlob = nullptr;
 
 	result = D3D12SerializeRootSignature(
-		&rootSignatureDesc,
-		D3D_ROOT_SIGNATURE_VERSION_1_0,
-		rootSigBlob.ReleaseAndGetAddressOf(),
-		errorBlob.ReleaseAndGetAddressOf());
+			 &rootSignatureDesc,
+			 D3D_ROOT_SIGNATURE_VERSION_1_0,
+			 rootSigBlob.ReleaseAndGetAddressOf(),
+			 errorBlob.ReleaseAndGetAddressOf());
 
 	result = _dx12->Device()->CreateRootSignature(
-		0,
-		rootSigBlob->GetBufferPointer(),
-		rootSigBlob->GetBufferSize(),
-		IID_PPV_ARGS(&rootsignature));
+		     0,
+		     rootSigBlob->GetBufferPointer(),
+		     rootSigBlob->GetBufferSize(),
+		     IID_PPV_ARGS(&rootsignature));
 
 	gpipeline.pRootSignature = rootsignature.Get();
 
