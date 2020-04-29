@@ -362,7 +362,7 @@ HRESULT PMDActor::LoadPMDFile(const char* path)
 		unsigned short nextNo;	 // 先端のボーン番号
 		unsigned char type;		 // ボーン種別
 		unsigned short ikBoneNo; // IK ボーン番号
-		XMFLOAT3 pos;			 // ボーンの基準座標店
+		XMFLOAT3 pos;			 // ボーンの基準座標点
 	};
 #pragma pack()
 
@@ -375,6 +375,49 @@ HRESULT PMDActor::LoadPMDFile(const char* path)
 	fread(pmdBones.data(), sizeof(PMDBone), boneNum, fp);
 
 	std::vector<XMMATRIX> _boneMatrices;
+
+	struct BoneNode
+	{
+		int boneIdx;					 // ボーンインデックス
+		XMFLOAT3 startPos;				 // ボーン基準点 ( 回転の中心 )
+		XMFLOAT3 endPos;				 // ボーン先端点 ( 実際のスキニングには利用しない )
+		std::vector<BoneNode*> children; // 子ノード
+	};
+
+	std::map<std::string, BoneNode> _boneNodeTable;
+
+	// インデックスと名前の対応関係構築のために後で使う
+	std::vector<std::string> boneNames(pmdBones.size());
+
+	// ボーンノードマップを作る
+	for (int idx = 0; idx < pmdBones.size(); ++idx)
+	{
+		auto& pb = pmdBones[idx];
+		boneNames[idx] = pb.boneName;
+		auto& node = _boneNodeTable[pb.boneName];
+		node.boneIdx = idx;
+		node.startPos = pb.pos;
+	}
+
+	// 親子関係を構築する
+	for (auto& pb : pmdBones)
+	{
+		// 親インデックス番号のチェック ( ありえない番号なら飛ばす )
+		if (pb.parentNo >= pmdBones.size())
+		{
+			continue;
+		}
+
+		auto parentName = boneNames[pb.parentNo];
+		_boneNodeTable[parentName].children.emplace_back(&_boneNodeTable[pb.boneName]);
+	}
+
+	_boneMatrices.resize(pmdBones.size());
+
+	// ボーンをすべて初期化
+	std::fill(_boneMatrices.begin(), 
+			  _boneMatrices.end(), 
+		      XMMatrixIdentity());
 
 	fclose(fp);
 
