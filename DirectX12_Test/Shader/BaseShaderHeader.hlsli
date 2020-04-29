@@ -12,6 +12,7 @@ cbuffer cbuff0 : register(b0)
     matrix view;
     matrix proj;
     float3 eye;
+    matrix bones[256];
 };
 
 cbuffer Material : register(b1)

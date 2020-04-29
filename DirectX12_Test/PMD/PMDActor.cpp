@@ -419,6 +419,8 @@ HRESULT PMDActor::LoadPMDFile(const char* path)
 			  _boneMatrices.end(), 
 		      XMMatrixIdentity());
 
+
+
 	fclose(fp);
 
 	CreateVertexBuffer();
