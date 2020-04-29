@@ -357,7 +357,7 @@ HRESULT PMDActor::LoadPMDFile(const char* path)
 	// 読み込み用ボーン構造体
 	struct PMDBone
 	{
-		char boneName[20];			 // ボーン名
+		char boneName[20];		 // ボーン名
 		unsigned short parentNo; // 親ボーン番号
 		unsigned short nextNo;	 // 先端のボーン番号
 		unsigned char type;		 // ボーン種別
@@ -373,6 +373,8 @@ HRESULT PMDActor::LoadPMDFile(const char* path)
 	std::vector<PMDBone> pmdBones(boneNum);
 
 	fread(pmdBones.data(), sizeof(PMDBone), boneNum, fp);
+
+	std::vector<XMMATRIX> _boneMatrices;
 
 	fclose(fp);
 
