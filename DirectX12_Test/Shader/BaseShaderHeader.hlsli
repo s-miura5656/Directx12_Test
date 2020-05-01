@@ -16,7 +16,7 @@ cbuffer SceneData : register(b0)
 cbuffer Transform : register(b1)
 {
     matrix world; // ƒ[ƒ‹ƒh•ÏŠ·s—ñ
-//    matrix bones[256];
+    matrix bones[256];
 }
 
 cbuffer Material : register(b2)

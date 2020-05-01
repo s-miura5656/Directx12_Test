@@ -247,71 +247,69 @@ HRESULT PMDActor::LoadPMDFile(const char* path)
 		}
 	}
 
-//#pragma pack(1)
-//	// 読み込み用ボーン構造体
-//	struct PMDBone
-//	{
-//		char boneName[20];		 // ボーン名
-//		unsigned short parentNo; // 親ボーン番号
-//		unsigned short nextNo;	 // 先端のボーン番号
-//		unsigned char type;		 // ボーン種別
-//		unsigned short ikBoneNo; // IK ボーン番号
-//		XMFLOAT3 pos;			 // ボーンの基準座標点
-//	};
-//#pragma pack()
-//
-//	unsigned short boneNum = 0;
-//
-//	fread(&boneNum, sizeof(boneNum), 1, fp);
-//
-//	std::vector<PMDBone> pmdBones(boneNum);
-//
-//	fread(pmdBones.data(), sizeof(PMDBone), boneNum, fp);
-//
-//	std::vector<XMMATRIX> _boneMatrices;
-//
-//	struct BoneNode
-//	{
-//		int boneIdx;					 // ボーンインデックス
-//		XMFLOAT3 startPos;				 // ボーン基準点 ( 回転の中心 )
-//		XMFLOAT3 endPos;				 // ボーン先端点 ( 実際のスキニングには利用しない )
-//		std::vector<BoneNode*> children; // 子ノード
-//	};
-//
-//	std::map<std::string, BoneNode> _boneNodeTable;
-//
-//	// インデックスと名前の対応関係構築のために後で使う
-//	std::vector<std::string> boneNames(pmdBones.size());
-//
-//	// ボーンノードマップを作る
-//	for (int idx = 0; idx < pmdBones.size(); ++idx)
-//	{
-//		auto& pb = pmdBones[idx];
-//		boneNames[idx] = pb.boneName;
-//		auto& node = _boneNodeTable[pb.boneName];
-//		node.boneIdx = idx;
-//		node.startPos = pb.pos;
-//	}
-//
-//	// 親子関係を構築する
-//	for (auto& pb : pmdBones)
-//	{
-//		// 親インデックス番号のチェック ( ありえない番号なら飛ばす )
-//		if (pb.parentNo >= pmdBones.size())
-//		{
-//			continue;
-//		}
-//
-//		auto parentName = boneNames[pb.parentNo];
-//		_boneNodeTable[parentName].children.emplace_back(&_boneNodeTable[pb.boneName]);
-//	}
-//
-//	_boneMatrices.resize(pmdBones.size());
-//
-//	// ボーンをすべて初期化
-//	std::fill(_boneMatrices.begin(), 
-//			  _boneMatrices.end(), 
-//		      XMMatrixIdentity());
+#pragma pack(1)
+	// 読み込み用ボーン構造体
+	struct PMDBone
+	{
+		char boneName[20];		 // ボーン名
+		unsigned short parentNo; // 親ボーン番号
+		unsigned short nextNo;	 // 先端のボーン番号
+		unsigned char type;		 // ボーン種別
+		unsigned short ikBoneNo; // IK ボーン番号
+		XMFLOAT3 pos;			 // ボーンの基準座標点
+	};
+#pragma pack()
+
+	unsigned short boneNum = 0;
+
+	fread(&boneNum, sizeof(boneNum), 1, fp);
+
+	std::vector<PMDBone> pmdBones(boneNum);
+
+	fread(pmdBones.data(), sizeof(PMDBone), boneNum, fp);
+
+	struct BoneNode
+	{
+		int boneIdx;					 // ボーンインデックス
+		XMFLOAT3 startPos;				 // ボーン基準点 ( 回転の中心 )
+		XMFLOAT3 endPos;				 // ボーン先端点 ( 実際のスキニングには利用しない )
+		std::vector<BoneNode*> children; // 子ノード
+	};
+
+	std::map<std::string, BoneNode> _boneNodeTable;
+
+	// インデックスと名前の対応関係構築のために後で使う
+	std::vector<std::string> boneNames(pmdBones.size());
+
+	// ボーンノードマップを作る
+	for (int idx = 0; idx < pmdBones.size(); ++idx)
+	{
+		auto& pb = pmdBones[idx];
+		boneNames[idx] = pb.boneName;
+		auto& node = _boneNodeTable[pb.boneName];
+		node.boneIdx = idx;
+		node.startPos = pb.pos;
+	}
+
+	// 親子関係を構築する
+	for (auto& pb : pmdBones)
+	{
+		// 親インデックス番号のチェック ( ありえない番号なら飛ばす )
+		if (pb.parentNo >= pmdBones.size())
+		{
+			continue;
+		}
+
+		auto parentName = boneNames[pb.parentNo];
+		_boneNodeTable[parentName].children.emplace_back(&_boneNodeTable[pb.boneName]);
+	}
+
+	_boneMatrices.resize(pmdBones.size());
+
+	// ボーンをすべて初期化
+	std::fill(_boneMatrices.begin(), 
+			  _boneMatrices.end(), 
+		      XMMatrixIdentity());
 
 
 
@@ -424,7 +422,7 @@ HRESULT PMDActor::CreateMaterialBuffer()
 HRESULT PMDActor::CreateTransformView()
 {
 	//GPUバッファ作成
-	auto buffSize = sizeof(Transform);
+	auto buffSize = sizeof(XMMATRIX) * (1 + _boneMatrices.size());
 
 	buffSize = (buffSize + 0xff) & ~0xff;
 	
@@ -444,7 +442,7 @@ HRESULT PMDActor::CreateTransformView()
 	}
 
 	//マップとコピー
-	result = _transformBuff->Map(0, nullptr, (void**)&_mappedTransform);
+	result = _transformBuff->Map(0, nullptr, (void**)&_mappedMatrices);
 	
 	if (FAILED(result)) 
 	{
@@ -452,7 +450,9 @@ HRESULT PMDActor::CreateTransformView()
 		return result;
 	}
 
-	*_mappedTransform = _transform;
+	*_mappedMatrices = _transform.world;
+
+	copy(_boneMatrices.begin(), _boneMatrices.end(), _mappedMatrices + 1);
 
 	//ビューの作成
 	D3D12_DESCRIPTOR_HEAP_DESC transformDescHeapDesc = {};
@@ -590,7 +590,7 @@ PMDActor::~PMDActor()
 void PMDActor::Update()
 {
 	angle += 0.03f;
-	_mappedTransform->world = XMMatrixRotationY(angle);
+	_mappedMatrices[0] = XMMatrixRotationY(angle);
 }
 
 void PMDActor::Draw()

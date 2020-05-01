@@ -76,6 +76,9 @@ private:
 	ComPtr<ID3D12Resource> idxBuff;
 	ComPtr<ID3D12Resource> materialBuff;
 
+	std::vector<DirectX::XMMATRIX> _boneMatrices;
+	DirectX::XMMATRIX* _mappedMatrices = nullptr;
+
 	Transform _transform;
 	Transform* _mappedTransform = nullptr;
 	ComPtr<ID3D12Resource> _transformBuff = nullptr;
