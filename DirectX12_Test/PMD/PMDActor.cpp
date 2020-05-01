@@ -268,16 +268,6 @@ HRESULT PMDActor::LoadPMDFile(const char* path)
 
 	fread(pmdBones.data(), sizeof(PMDBone), boneNum, fp);
 
-	struct BoneNode
-	{
-		int boneIdx;					 // ボーンインデックス
-		XMFLOAT3 startPos;				 // ボーン基準点 ( 回転の中心 )
-		XMFLOAT3 endPos;				 // ボーン先端点 ( 実際のスキニングには利用しない )
-		std::vector<BoneNode*> children; // 子ノード
-	};
-
-	std::map<std::string, BoneNode> _boneNodeTable;
-
 	// インデックスと名前の対応関係構築のために後で使う
 	std::vector<std::string> boneNames(pmdBones.size());
 
@@ -571,6 +561,16 @@ HRESULT PMDActor::CreateMaterialAndTextureView()
 	return S_OK;
 }
 
+void PMDActor::RecursiveMatrixMultipy(BoneNode* node, XMMATRIX& mat)
+{
+	_boneMatrices[node->boneIdx] *= mat;
+
+	for (auto& cnode : node->children)
+	{
+		RecursiveMatrixMultipy(cnode, _boneMatrices[node->boneIdx]);
+	}
+}
+
 PMDActor::PMDActor(std::shared_ptr<PMDRenderer> renderer, const char* path):
 	_renderer(renderer),
 	_dx12(renderer->_dx12),
@@ -581,6 +581,29 @@ PMDActor::PMDActor(std::shared_ptr<PMDRenderer> renderer, const char* path):
 	CreateTransformView();
 	CreateMaterialBuffer();
 	CreateMaterialAndTextureView();
+
+	auto armNode = _boneNodeTable["左腕"];
+
+	auto& armPos = armNode.startPos;
+
+	auto armMat = XMMatrixTranslation(-armPos.x, -armPos.y, -armPos.z)   // 1 ボーン基準点を原点へ戻すように平行移動
+				* XMMatrixRotationZ(XM_PIDIV2)  						 // 2 ９０°回転
+				* XMMatrixTranslation(armPos.x, armPos.y, armPos.z);	 // 3 ボーンを元のボーン基準点へ戻すように平行移動
+
+	auto elbowNode = _boneNodeTable["左ひじ"];
+
+	auto& elbowPos = elbowNode.startPos;
+
+	auto elbowMat = XMMatrixTranslation(-elbowPos.x, -elbowPos.y, -elbowPos.z)   // 1 ボーン基準点を原点へ戻すように平行移動
+				  * XMMatrixRotationZ(-XM_PIDIV2)  								 // 2 ９０°回転
+				  * XMMatrixTranslation(elbowPos.x, elbowPos.y, elbowPos.z);	 // 3 ボーンを元のボーン基準点へ戻すように平行移動
+
+	_boneMatrices[armNode.boneIdx] = armMat;
+	_boneMatrices[elbowNode.boneIdx] = elbowMat;
+
+	RecursiveMatrixMultipy(&_boneNodeTable["センター"], _transform.world);
+
+	copy(_boneMatrices.begin(), _boneMatrices.end(), _mappedMatrices + 1);
 }
 
 PMDActor::~PMDActor()
@@ -589,8 +612,10 @@ PMDActor::~PMDActor()
 
 void PMDActor::Update()
 {
-	angle += 0.03f;
-	_mappedMatrices[0] = XMMatrixRotationY(angle);
+//	angle += 0.03f;
+//	_mappedMatrices[0] = XMMatrixRotationY(angle);
+
+	
 }
 
 void PMDActor::Draw()

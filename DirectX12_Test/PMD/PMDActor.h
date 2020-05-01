@@ -6,6 +6,8 @@
 #include <wrl.h>
 #include <string>
 #include <memory>
+#include <map>
+
 
 class Dx12Wrapper;
 class PMDRenderer;
@@ -49,6 +51,14 @@ private:
 		DirectX::XMMATRIX world;
 	};
 
+	struct BoneNode
+	{
+		int boneIdx;					 // ボーンインデックス
+		DirectX::XMFLOAT3 startPos;				 // ボーン基準点 ( 回転の中心 )
+		DirectX::XMFLOAT3 endPos;				 // ボーン先端点 ( 実際のスキニングには利用しない )
+		std::vector<BoneNode*> children; // 子ノード
+	};
+
 	template<typename T>
 	using ComPtr = Microsoft::WRL::ComPtr<T>;
 
@@ -77,6 +87,7 @@ private:
 	ComPtr<ID3D12Resource> materialBuff;
 
 	std::vector<DirectX::XMMATRIX> _boneMatrices;
+	std::map<std::string, BoneNode> _boneNodeTable;
 	DirectX::XMMATRIX* _mappedMatrices = nullptr;
 
 	Transform _transform;
@@ -99,6 +110,8 @@ private:
 	HRESULT CreateTransformView();
 	// マテリアル＆テクスチャのビューを作成
 	HRESULT CreateMaterialAndTextureView();
+	// 再帰関数
+	void RecursiveMatrixMultipy(BoneNode* node, DirectX::XMMATRIX& mat);
 
 public:
 	PMDActor(std::shared_ptr<PMDRenderer> renderer, const char* path);
