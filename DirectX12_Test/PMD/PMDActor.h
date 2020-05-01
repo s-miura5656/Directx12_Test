@@ -42,6 +42,13 @@ private:
 		AdditionalMaterial additional;
 	};
 
+	struct Transform {
+		//内部に持ってるXMMATRIXメンバが16バイトアライメントであるため
+		//Transformをnewする際には16バイト境界に確保する
+		void* operator new(size_t size);
+		DirectX::XMMATRIX world;
+	};
+
 	template<typename T>
 	using ComPtr = Microsoft::WRL::ComPtr<T>;
 
@@ -59,6 +66,7 @@ private:
 	std::vector<ComPtr<ID3D12Resource>> sphResources;
 	std::vector<ComPtr<ID3D12Resource>> spaResources;
 	std::vector<ComPtr<ID3D12Resource>> toonResources;
+
 	std::vector<unsigned char> vertices;
 	std::vector<unsigned short> indices;
 	unsigned int vertNum; // 頂点数
@@ -66,10 +74,15 @@ private:
 	unsigned int materialNum;
 	ComPtr<ID3D12Resource> vertBuff;
 	ComPtr<ID3D12Resource> idxBuff;
+	ComPtr<ID3D12Resource> materialBuff;
 
-	ID3D12Resource* CreateWhiteTexture();
-	ID3D12Resource* CreateBlackTexture();
-	ID3D12Resource* CreateGrayGradationTexture();
+	Transform _transform;
+	Transform* _mappedTransform = nullptr;
+	ComPtr<ID3D12Resource> _transformBuff = nullptr;
+	ComPtr<ID3D12Resource> _transformMat = nullptr;//座標変換行列(今はワールドのみ)
+	ComPtr<ID3D12DescriptorHeap> _transformHeap = nullptr;//座標変換ヒープ
+
+	float angle;
 
 	// PMD ファイルのロード
 	HRESULT LoadPMDFile(const char* path);
@@ -79,9 +92,13 @@ private:
 	HRESULT CreateIndexBuffer();
 	// マテリアルバッファ作成
 	HRESULT CreateMaterialBuffer();
+	// 座標変換用ビューの生成
+	HRESULT CreateTransformView();
+	// マテリアル＆テクスチャのビューを作成
+	HRESULT CreateMaterialAndTextureView();
 
 public:
-	PMDActor(std::shared_ptr<Dx12Wrapper> dx12, const char* path);
+	PMDActor(std::shared_ptr<PMDRenderer> renderer, const char* path);
 	~PMDActor();
 	
 	void Update();

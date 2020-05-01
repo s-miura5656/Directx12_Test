@@ -6,15 +6,20 @@ Texture2D<float4> toon : register(t3);
 SamplerState smp     : register(s0);
 SamplerState smpToon : register(s1);
 
-cbuffer cbuff0 : register(b0)
+cbuffer SceneData : register(b0)
 {
-    matrix world;
-    matrix view;
-    matrix proj;
-    float3 eye;
+    matrix view; // ビュー
+    matrix proj; // プロジェクション
+    float3 eye;  // 視線ベクトル
 };
 
-cbuffer Material : register(b1)
+cbuffer Transform : register(b1)
+{
+    matrix world; // ワールド変換行列
+//    matrix bones[256];
+}
+
+cbuffer Material : register(b2)
 {
     float4 diffuse;
     float4 specular;

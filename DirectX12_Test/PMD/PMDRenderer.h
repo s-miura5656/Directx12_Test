@@ -1,64 +1,49 @@
 #pragma once
 
-#include <vector>
-#include <wrl.h>
-#include <memory>
-#include <d3dcompiler.h>
-#include <DirectXTex.h>
-#include <d3dx12.h>
-#include <DirectXMath.h>
-#include <d3d12.h>
-#include <dxgi1_6.h>
+#include<d3d12.h>
+#include<vector>
+#include<wrl.h>
+#include<memory>
 
 class Dx12Wrapper;
+class PMDActor;
 
 class PMDRenderer
 {
+	friend PMDActor;
 private:
-	// シェーダー側に渡す為の基本的な行列のデータ
-	struct SceneMatrix
-	{
-		DirectX::XMMATRIX world;	// ワールド行列
-		DirectX::XMMATRIX view;		// ビュー行列
-		DirectX::XMMATRIX proj;		// プロジェクション行列
-		DirectX::XMFLOAT3 eye;      // 視点座標
-	};
-
-
+	
 	template<typename T>
 	using ComPtr = Microsoft::WRL::ComPtr<T>;
 
 	// 変数宣言
 	std::shared_ptr<Dx12Wrapper> _dx12;
-	float angle = 0.0f;
-
-	ComPtr<ID3DBlob> _vsBlob;
-	ComPtr<ID3DBlob> _psBlob;
-	ComPtr<ID3DBlob> errorBlob;
-	ComPtr<ID3D12RootSignature> rootsignature;
+	
+	ComPtr<ID3D12RootSignature> rootSignature;
 	ComPtr<ID3D12PipelineState> pipelinestate;
-	ComPtr<ID3D12DescriptorHeap> basicDescHeap;
 
-	SceneMatrix* mapMatrix;
-	DirectX::XMMATRIX worldMat;
-	DirectX::XMMATRIX viewMat;
-	DirectX::XMMATRIX projMat;
+	// PMD用共通テクスチャ(白、黒、グレイスケールグラデーション)
+	ComPtr<ID3D12Resource> whiteTex = nullptr;
+	ComPtr<ID3D12Resource> blackTex = nullptr;
+	ComPtr<ID3D12Resource> gradTex = nullptr;
+
+	ID3D12Resource* CreateDefaultTexture(size_t width, size_t height);
+	ID3D12Resource* CreateWhiteTexture();
+	ID3D12Resource* CreateBlackTexture();
+	ID3D12Resource* CreateGrayGradationTexture();
 
 	// シェーダー読み込み成功か失敗か確認
-	bool CheckShaderCompileResult(HRESULT result, ComPtr<ID3DBlob> error = nullptr);
-	// シェーダーのセット
-	HRESULT SetShader();
+	bool CheckShaderCompileResult(HRESULT result, ID3DBlob* error = nullptr);
 	// パイプラインの生成
 	HRESULT CreateGraphicsPipelineForPMD();
-	// 定数バッファ作成
-	HRESULT CreateConstantBuffer();// 定数バッファ作成
-
-	
+	// ルートシグネチャ初期化
+	HRESULT CreateRootSignature();
 public:
 	PMDRenderer(std::shared_ptr<Dx12Wrapper> dx12);
 	~PMDRenderer();
 	void Update();
 	void Draw();
+	void SetCmdList();
 	ComPtr<ID3D12PipelineState> GetPipelineState();
 	ComPtr<ID3D12RootSignature> GetRootSignature();
 };
