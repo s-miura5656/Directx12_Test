@@ -88,8 +88,13 @@ Dx12Wrapper::Dx12Wrapper(HWND hwnd) {
 		return;
 	}
 
-	if (FAILED(CreateRTV())) 
+	if (FAILED(CreateFinalRTV())) 
 	{
+		assert(0);
+		return;
+	}
+
+	if (FAILED(CreateSceneView())) {
 		assert(0);
 		return;
 	}
@@ -153,6 +158,14 @@ void Dx12Wrapper::BeginDraw()
 	_cmdList->RSSetScissorRects(1, _scissorrect.get());
 }
 
+void Dx12Wrapper::SetScene()
+{
+	//現在のシーン(ビュープロジェクション)をセット
+	ID3D12DescriptorHeap* sceneheaps[] = { _sceneDescHeap.Get() };
+	_cmdList->SetDescriptorHeaps(1, sceneheaps);
+	_cmdList->SetGraphicsRootDescriptorTable(0, _sceneDescHeap->GetGPUDescriptorHandleForHeapStart());
+}
+
 void Dx12Wrapper::EndDraw()
 {
 	auto bbIdx = _swapchain->GetCurrentBackBufferIndex();
@@ -189,6 +202,12 @@ void Dx12Wrapper::EndDraw()
 
 HRESULT Dx12Wrapper::InitializeDXGIDevice()
 {
+	UINT flagsDXGI = 0;
+
+	flagsDXGI |= DXGI_CREATE_FACTORY_DEBUG;
+	
+	auto result = CreateDXGIFactory2(flagsDXGI, IID_PPV_ARGS(_dxgiFactory.ReleaseAndGetAddressOf()));
+
 	// DirectX12まわり初期化
 	// フィーチャレベル列挙
 	D3D_FEATURE_LEVEL levels[] = {
@@ -198,16 +217,12 @@ HRESULT Dx12Wrapper::InitializeDXGIDevice()
 		D3D_FEATURE_LEVEL_11_0,
 	};
 
-	HRESULT result = S_OK;
-
-	if (FAILED(CreateDXGIFactory2(DXGI_CREATE_FACTORY_DEBUG, IID_PPV_ARGS(&_dxgiFactory))))
+	if (FAILED(result)) 
 	{
-		if (FAILED(CreateDXGIFactory2(0, IID_PPV_ARGS(&_dxgiFactory)))) {
-			return -1;
-		}
+		return result;
 	}
 
-	std::vector <IDXGIAdapter*> adapters;
+	std::vector<IDXGIAdapter*> adapters;
 
 	IDXGIAdapter* tmpAdapter = nullptr;
 
@@ -231,13 +246,15 @@ HRESULT Dx12Wrapper::InitializeDXGIDevice()
 		}
 	}
 
+	result = S_FALSE;
+
 	// Direct3Dデバイスの初期化
 	D3D_FEATURE_LEVEL featureLevel;
 
 	for (auto l : levels)
 	{
-		if (D3D12CreateDevice(tmpAdapter, l, IID_PPV_ARGS(&_dev)) == S_OK) {
-
+		if (SUCCEEDED(D3D12CreateDevice(tmpAdapter, l, IID_PPV_ARGS(_dev.ReleaseAndGetAddressOf()))) == S_OK) 
+		{
 			featureLevel = l;
 			result = S_OK;
 			break;
@@ -249,9 +266,7 @@ HRESULT Dx12Wrapper::InitializeDXGIDevice()
 
 HRESULT Dx12Wrapper::InitializeCommand()
 {
-	HRESULT result = S_OK;
-
-	result = _dev->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(_cmdAllocator.ReleaseAndGetAddressOf()));
+	auto result = _dev->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(_cmdAllocator.ReleaseAndGetAddressOf()));
 
 	if (FAILED(result)) {
 		assert(0);
@@ -267,11 +282,12 @@ HRESULT Dx12Wrapper::InitializeCommand()
 
 	D3D12_COMMAND_QUEUE_DESC cmdQueueDesc = {};
 
-	cmdQueueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;							// タイムアウトなし
-	cmdQueueDesc.NodeMask = 0;
-	cmdQueueDesc.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;				// プライオリティ特に指定なし
-	cmdQueueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;							// ここはコマンドリストと合わせてください
-	result = _dev->CreateCommandQueue(&cmdQueueDesc, IID_PPV_ARGS(&_cmdQueue)); // コマンドキュー生成
+	cmdQueueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;			 // タイムアウトなし
+	cmdQueueDesc.NodeMask = 0;									 
+	cmdQueueDesc.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL; // プライオリティ特に指定なし
+	cmdQueueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;			 // ここはコマンドリストと合わせてください
+	result = _dev->CreateCommandQueue(&cmdQueueDesc, 
+			 IID_PPV_ARGS(_cmdQueue.ReleaseAndGetAddressOf()));  // コマンドキュー生成
 
 	assert(SUCCEEDED(result));
 
@@ -280,8 +296,6 @@ HRESULT Dx12Wrapper::InitializeCommand()
 
 HRESULT Dx12Wrapper::CreateSwapChain(const HWND& hwnd)
 {
-	HRESULT result = S_OK;
-
 	DXGI_SWAP_CHAIN_DESC1 swapchainDesc = {};
 
 	swapchainDesc.Width = windowSize.cx;
@@ -298,26 +312,85 @@ HRESULT Dx12Wrapper::CreateSwapChain(const HWND& hwnd)
 	swapchainDesc.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
 
 
-	result = _dxgiFactory->CreateSwapChainForHwnd(
-		_cmdQueue.Get(),
-		hwnd,
-		&swapchainDesc,
-		nullptr,
-		nullptr,
-		(IDXGISwapChain1**)_swapchain.ReleaseAndGetAddressOf());
+	auto result = _dxgiFactory->CreateSwapChainForHwnd(
+				  _cmdQueue.Get(),
+				  hwnd,
+				  &swapchainDesc,
+				  nullptr,
+				  nullptr,
+				  (IDXGISwapChain1**)_swapchain.ReleaseAndGetAddressOf());
 
 	assert(SUCCEEDED(result));
 
 	return result;
 }
 
-HRESULT Dx12Wrapper::CreateRTV()
+HRESULT Dx12Wrapper::CreateSceneView()
 {
-	HRESULT result = S_OK;
+	DXGI_SWAP_CHAIN_DESC1 desc = {};
+	
+	auto result = _swapchain->GetDesc1(&desc);
 
+	//定数バッファ作成
+	result = _dev->CreateCommittedResource(
+			 &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+			 D3D12_HEAP_FLAG_NONE,
+			 &CD3DX12_RESOURCE_DESC::Buffer((sizeof(SceneData) + 0xff) & ~0xff),
+			 D3D12_RESOURCE_STATE_GENERIC_READ,
+			 nullptr,
+			 IID_PPV_ARGS(_sceneConstBuff.ReleaseAndGetAddressOf())
+	);
+
+	if (FAILED(result)) {
+		assert(SUCCEEDED(result));
+		return result;
+	}
+
+	_mappedSceneData = nullptr; // マップ先を示すポインタ
+	result = _sceneConstBuff->Map(0, nullptr, (void**)&_mappedSceneData); // マップ
+
+	XMFLOAT3 eye(0, 15, -15);
+	XMFLOAT3 target(0, 15, 0);
+	XMFLOAT3 up(0, 1, 0);
+
+	_mappedSceneData->view = XMMatrixLookAtLH(XMLoadFloat3(&eye), XMLoadFloat3(&target), XMLoadFloat3(&up));
+
+	_mappedSceneData->proj = XMMatrixPerspectiveFovLH(
+							 XM_PIDIV4, // 画角 45°
+							 static_cast<float>(desc.Width) / static_cast<float>(desc.Height), // アスペクト比
+							 1.0f,    // 近いほう
+							 100.0f); // 遠いほう
+
+	_mappedSceneData->eye = eye;
+
+	D3D12_DESCRIPTOR_HEAP_DESC descHeapDesc = {};
+	
+	descHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE; // シェーダから見えるように
+	descHeapDesc.NodeMask = 0; // マスクは0
+	descHeapDesc.NumDescriptors = 1;
+	descHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV; // デスクリプタヒープ種別
+	
+	result = _dev->CreateDescriptorHeap(&descHeapDesc, IID_PPV_ARGS(_sceneDescHeap.ReleaseAndGetAddressOf())); // 生成
+
+	///デスクリプタの先頭ハンドルを取得しておく
+	auto heapHandle = _sceneDescHeap->GetCPUDescriptorHandleForHeapStart();
+
+	D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc = {};
+	
+	cbvDesc.BufferLocation = _sceneConstBuff->GetGPUVirtualAddress();
+	cbvDesc.SizeInBytes = _sceneConstBuff->GetDesc().Width;
+	
+	//定数バッファビューの作成
+	_dev->CreateConstantBufferView(&cbvDesc, heapHandle);
+	
+	return result;
+}
+
+HRESULT Dx12Wrapper::CreateFinalRTV()
+{
 	DXGI_SWAP_CHAIN_DESC1 desc = {};
 
-	result = _swapchain->GetDesc1(&desc);
+	auto result = _swapchain->GetDesc1(&desc);
 
 	D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {};
 
@@ -328,7 +401,14 @@ HRESULT Dx12Wrapper::CreateRTV()
 
 	result = _dev->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&rtvHeaps));
 
+	if (FAILED(result)) 
+	{
+		SUCCEEDED(result);
+		return result;
+	}
+
 	DXGI_SWAP_CHAIN_DESC swcDesc = {};
+	
 	result = _swapchain->GetDesc(&swcDesc);
 
 	_backBuffers.resize(swcDesc.BufferCount);
@@ -343,9 +423,9 @@ HRESULT Dx12Wrapper::CreateRTV()
 	for (int i = 0; i < swcDesc.BufferCount; ++i)
 	{
 		result = _swapchain->GetBuffer(i, IID_PPV_ARGS(&_backBuffers[i]));
-
+		assert(SUCCEEDED(result));
+		rtvDesc.Format = _backBuffers[i]->GetDesc().Format;
 		_dev->CreateRenderTargetView(_backBuffers[i], &rtvDesc, handle);
-
 		handle.ptr += _dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 	}
 

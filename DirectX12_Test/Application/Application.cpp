@@ -79,9 +79,10 @@ bool Application::Init()
 	
 	_dx12.reset(new Dx12Wrapper(_hwnd));
 	
-	_pmdActor.reset(new PMDActor(_dx12, "Content/Model/初音ミク.pmd"));
-	
 	_pmdRenderer.reset(new PMDRenderer(_dx12));
+
+	_pmdActor.reset(new PMDActor(_pmdRenderer, "Content/Model/初音ミク.pmd"));
+
 	
 	ShowWindow(_hwnd, SW_SHOW); // ウィンドウ表示
 
@@ -108,8 +109,11 @@ void Application::Run()
 
 		_pmdRenderer->Update();
 
-		_pmdRenderer->Draw();
+		_pmdRenderer->SetCmdList();
 
+		_dx12->SetScene();
+
+		_pmdActor->Update();
 		_pmdActor->Draw();
 
 		_dx12->EndDraw();

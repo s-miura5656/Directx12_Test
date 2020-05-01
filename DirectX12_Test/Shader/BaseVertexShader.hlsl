@@ -8,7 +8,7 @@ Output BaseVS( float4 pos        : POSITION,
 )
 {
     Output output;
-    pos            = mul(bones[boneno[0]], pos);
+ //   pos            = mul(bones[boneno[0]], pos);
     pos            = mul(world, pos);
     output.svpos   = mul(mul(proj, view), pos);
     output.pos     = mul(view, pos);

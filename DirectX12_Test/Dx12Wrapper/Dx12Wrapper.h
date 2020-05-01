@@ -31,6 +31,19 @@ private:
 	ComPtr<ID3D12DescriptorHeap> rtvHeaps;
 	ComPtr<ID3D12DescriptorHeap> dsvHeap;
 
+	//シーンを構成するバッファまわり
+	ComPtr<ID3D12Resource> _sceneConstBuff = nullptr;
+
+	struct SceneData {
+		DirectX::XMMATRIX view;//ビュー行列
+		DirectX::XMMATRIX proj;//プロジェクション行列
+		DirectX::XMFLOAT3 eye;//視点座標
+	};
+
+	SceneData* _mappedSceneData;
+	
+	ComPtr<ID3D12DescriptorHeap> _sceneDescHeap = nullptr;
+
 	// バックバッファ
 	std::vector<ID3D12Resource*> _backBuffers; // ComPtr
 	// ビューポート
@@ -47,8 +60,10 @@ private:
 	HRESULT InitializeCommand();
 	// スワップチェインの生成
 	HRESULT CreateSwapChain(const HWND& hwnd);
+	// ビュープロジェクション用ビューの生成
+	HRESULT CreateSceneView();
 	// レンダーターゲットビュー生成
-	HRESULT CreateRTV();
+	HRESULT CreateFinalRTV();
 	// テクスチャローダテーブルの作成
 	void CreateTextureLoaderTable();
 	// デプスバッファ作成
@@ -68,6 +83,7 @@ public:
 
 	void Update();
 	void BeginDraw();
+	void SetScene();
 	void EndDraw();
 
 	///テクスチャパスから必要なテクスチャバッファへのポインタを返す

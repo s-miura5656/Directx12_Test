@@ -79,115 +79,9 @@ namespace
 	}
 }
 
-ID3D12Resource* PMDActor::CreateWhiteTexture()
+void* PMDActor::Transform::operator new(size_t size) 
 {
-	auto resDesc = CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_R8G8B8A8_UNORM, 4, 4);
-
-	// WriteToSubresource で転送する用のヒープ設定
-	auto texHeapProp = CD3DX12_HEAP_PROPERTIES(D3D12_CPU_PAGE_PROPERTY_WRITE_BACK, 
-											   D3D12_MEMORY_POOL_L0);
-
-	// バッファー作成
-	ID3D12Resource* whiteBuff = nullptr;
-
-	auto result = _dx12->Device()->CreateCommittedResource(
-		&texHeapProp,
-		D3D12_HEAP_FLAG_NONE,
-		&resDesc,
-		D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
-		nullptr,
-		IID_PPV_ARGS(&whiteBuff));
-
-	if (FAILED(result))
-	{
-		return nullptr;
-	}
-
-	std::vector<unsigned char> data(4 * 4 * 4);
-	std::fill(data.begin(), data.end(), 0xff);
-
-	result = whiteBuff->WriteToSubresource(0, nullptr, data.data(), 4 * 4, data.size());
-
-	return whiteBuff;
-}
-
-ID3D12Resource* PMDActor::CreateBlackTexture()
-{
-	auto resDesc = CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_R8G8B8A8_UNORM, 4, 4);
-
-	// WriteToSubresource で転送する用のヒープ設定
-	auto texHeapProp = CD3DX12_HEAP_PROPERTIES(D3D12_CPU_PAGE_PROPERTY_WRITE_BACK,
-											   D3D12_MEMORY_POOL_L0);
-
-	// バッファー作成
-	ID3D12Resource* blackBuff = nullptr;
-
-	auto result = _dx12->Device()->CreateCommittedResource(
-		 &texHeapProp,
-		 D3D12_HEAP_FLAG_NONE,
-		 &resDesc,
-		 D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
-		 nullptr,
-		 IID_PPV_ARGS(&blackBuff));
-
-	if (FAILED(result))
-		return nullptr;
-
-
-	std::vector<unsigned char> data(4 * 4 * 4);
-	std::fill(data.begin(), data.end(), 0x00);
-
-	result = blackBuff->WriteToSubresource(0, nullptr, data.data(), 4 * 4, data.size());
-
-	return blackBuff;
-}
-
-ID3D12Resource* PMDActor::CreateGrayGradationTexture()
-{
-	auto resDesc = CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_R8G8B8A8_UNORM, 4, 256);
-
-	// WriteToSubresource で転送する用のヒープ設定
-	auto texHeapProp = CD3DX12_HEAP_PROPERTIES(D3D12_CPU_PAGE_PROPERTY_WRITE_BACK,
-											   D3D12_MEMORY_POOL_L0);
-
-	ID3D12Resource* gradBuff = nullptr;
-
-	auto result = _dx12->Device()->CreateCommittedResource(
-				  &texHeapProp,
-				  D3D12_HEAP_FLAG_NONE,//特に指定なし
-				  &resDesc,
-				  D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
-				  nullptr,
-				  IID_PPV_ARGS(&gradBuff)
-	);
-
-	if (FAILED(result)) 
-	{
-		return nullptr;
-	}
-
-	// 上が白くて下が黒いテクスチャデータを作成
-	std::vector<unsigned int> data(4 * 256);
-
-	auto it = data.begin();
-
-	unsigned int c = 0xff;
-
-	for (; it != data.end(); it += 4)
-	{
-		auto col = (c << 0xff) | (c << 16) | (c << 8) | c;
-		std::fill(it, it + 4, col);
-		--c;
-	}
-
-	result = gradBuff->WriteToSubresource(
-					   0,
-					   nullptr,
-					   data.data(),
-					   4 * sizeof(unsigned int),
-					   sizeof(unsigned int) * data.size());
-
-	return gradBuff;
+	return _aligned_malloc(size, 16);
 }
 
 // @param モデルパス
@@ -353,71 +247,71 @@ HRESULT PMDActor::LoadPMDFile(const char* path)
 		}
 	}
 
-#pragma pack(1)
-	// 読み込み用ボーン構造体
-	struct PMDBone
-	{
-		char boneName[20];		 // ボーン名
-		unsigned short parentNo; // 親ボーン番号
-		unsigned short nextNo;	 // 先端のボーン番号
-		unsigned char type;		 // ボーン種別
-		unsigned short ikBoneNo; // IK ボーン番号
-		XMFLOAT3 pos;			 // ボーンの基準座標点
-	};
-#pragma pack()
-
-	unsigned short boneNum = 0;
-
-	fread(&boneNum, sizeof(boneNum), 1, fp);
-
-	std::vector<PMDBone> pmdBones(boneNum);
-
-	fread(pmdBones.data(), sizeof(PMDBone), boneNum, fp);
-
-	std::vector<XMMATRIX> _boneMatrices;
-
-	struct BoneNode
-	{
-		int boneIdx;					 // ボーンインデックス
-		XMFLOAT3 startPos;				 // ボーン基準点 ( 回転の中心 )
-		XMFLOAT3 endPos;				 // ボーン先端点 ( 実際のスキニングには利用しない )
-		std::vector<BoneNode*> children; // 子ノード
-	};
-
-	std::map<std::string, BoneNode> _boneNodeTable;
-
-	// インデックスと名前の対応関係構築のために後で使う
-	std::vector<std::string> boneNames(pmdBones.size());
-
-	// ボーンノードマップを作る
-	for (int idx = 0; idx < pmdBones.size(); ++idx)
-	{
-		auto& pb = pmdBones[idx];
-		boneNames[idx] = pb.boneName;
-		auto& node = _boneNodeTable[pb.boneName];
-		node.boneIdx = idx;
-		node.startPos = pb.pos;
-	}
-
-	// 親子関係を構築する
-	for (auto& pb : pmdBones)
-	{
-		// 親インデックス番号のチェック ( ありえない番号なら飛ばす )
-		if (pb.parentNo >= pmdBones.size())
-		{
-			continue;
-		}
-
-		auto parentName = boneNames[pb.parentNo];
-		_boneNodeTable[parentName].children.emplace_back(&_boneNodeTable[pb.boneName]);
-	}
-
-	_boneMatrices.resize(pmdBones.size());
-
-	// ボーンをすべて初期化
-	std::fill(_boneMatrices.begin(), 
-			  _boneMatrices.end(), 
-		      XMMatrixIdentity());
+//#pragma pack(1)
+//	// 読み込み用ボーン構造体
+//	struct PMDBone
+//	{
+//		char boneName[20];		 // ボーン名
+//		unsigned short parentNo; // 親ボーン番号
+//		unsigned short nextNo;	 // 先端のボーン番号
+//		unsigned char type;		 // ボーン種別
+//		unsigned short ikBoneNo; // IK ボーン番号
+//		XMFLOAT3 pos;			 // ボーンの基準座標点
+//	};
+//#pragma pack()
+//
+//	unsigned short boneNum = 0;
+//
+//	fread(&boneNum, sizeof(boneNum), 1, fp);
+//
+//	std::vector<PMDBone> pmdBones(boneNum);
+//
+//	fread(pmdBones.data(), sizeof(PMDBone), boneNum, fp);
+//
+//	std::vector<XMMATRIX> _boneMatrices;
+//
+//	struct BoneNode
+//	{
+//		int boneIdx;					 // ボーンインデックス
+//		XMFLOAT3 startPos;				 // ボーン基準点 ( 回転の中心 )
+//		XMFLOAT3 endPos;				 // ボーン先端点 ( 実際のスキニングには利用しない )
+//		std::vector<BoneNode*> children; // 子ノード
+//	};
+//
+//	std::map<std::string, BoneNode> _boneNodeTable;
+//
+//	// インデックスと名前の対応関係構築のために後で使う
+//	std::vector<std::string> boneNames(pmdBones.size());
+//
+//	// ボーンノードマップを作る
+//	for (int idx = 0; idx < pmdBones.size(); ++idx)
+//	{
+//		auto& pb = pmdBones[idx];
+//		boneNames[idx] = pb.boneName;
+//		auto& node = _boneNodeTable[pb.boneName];
+//		node.boneIdx = idx;
+//		node.startPos = pb.pos;
+//	}
+//
+//	// 親子関係を構築する
+//	for (auto& pb : pmdBones)
+//	{
+//		// 親インデックス番号のチェック ( ありえない番号なら飛ばす )
+//		if (pb.parentNo >= pmdBones.size())
+//		{
+//			continue;
+//		}
+//
+//		auto parentName = boneNames[pb.parentNo];
+//		_boneNodeTable[parentName].children.emplace_back(&_boneNodeTable[pb.boneName]);
+//	}
+//
+//	_boneMatrices.resize(pmdBones.size());
+//
+//	// ボーンをすべて初期化
+//	std::fill(_boneMatrices.begin(), 
+//			  _boneMatrices.end(), 
+//		      XMMatrixIdentity());
 
 
 
@@ -484,25 +378,34 @@ HRESULT PMDActor::CreateIndexBuffer()
 
 HRESULT PMDActor::CreateMaterialBuffer()
 {
-	HRESULT result = S_OK;
-
 	/* マテリアルバッファ --------------------------------------*/
 	auto materialBuffSize = sizeof(MaterialForHlsl);
+
 	materialBuffSize = (materialBuffSize + 0xff) & ~0xff;
 
-	ID3D12Resource* materialBuff = nullptr;
+	auto result = _dx12->Device()->CreateCommittedResource(
+				  &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+				  D3D12_HEAP_FLAG_NONE,
+				  &CD3DX12_RESOURCE_DESC::Buffer(materialBuffSize * materialNum),
+				  D3D12_RESOURCE_STATE_GENERIC_READ,
+				  nullptr,
+				  IID_PPV_ARGS(materialBuff.ReleaseAndGetAddressOf()));
 
-	result = _dx12->Device()->CreateCommittedResource(
-			 &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
-			 D3D12_HEAP_FLAG_NONE,
-			 &CD3DX12_RESOURCE_DESC::Buffer(materialBuffSize * materialNum),
-			 D3D12_RESOURCE_STATE_GENERIC_READ,
-			 nullptr,
-			 IID_PPV_ARGS(&materialBuff));
+	if (FAILED(result)) 
+	{
+		assert(SUCCEEDED(result));
+		return result;
+	}
 
 	char* mapMaterial = nullptr;
 
 	result = materialBuff->Map(0, nullptr, (void**)&mapMaterial);
+
+	if (FAILED(result))
+	{
+		assert(SUCCEEDED(result));
+		return result;
+	}
 
 	for (auto& m : materials)
 	{
@@ -512,7 +415,74 @@ HRESULT PMDActor::CreateMaterialBuffer()
 
 	materialBuff->Unmap(0, nullptr);
 
+	return S_OK;
 
+
+	
+}
+
+HRESULT PMDActor::CreateTransformView()
+{
+	//GPUバッファ作成
+	auto buffSize = sizeof(Transform);
+
+	buffSize = (buffSize + 0xff) & ~0xff;
+	
+	auto result = _dx12->Device()->CreateCommittedResource(
+				  &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+				  D3D12_HEAP_FLAG_NONE,
+				  &CD3DX12_RESOURCE_DESC::Buffer(buffSize),
+				  D3D12_RESOURCE_STATE_GENERIC_READ,
+				  nullptr,
+				  IID_PPV_ARGS(_transformBuff.ReleaseAndGetAddressOf())
+	);
+
+	if (FAILED(result)) 
+	{
+		assert(SUCCEEDED(result));
+		return result;
+	}
+
+	//マップとコピー
+	result = _transformBuff->Map(0, nullptr, (void**)&_mappedTransform);
+	
+	if (FAILED(result)) 
+	{
+		assert(SUCCEEDED(result));
+		return result;
+	}
+
+	*_mappedTransform = _transform;
+
+	//ビューの作成
+	D3D12_DESCRIPTOR_HEAP_DESC transformDescHeapDesc = {};
+	
+	transformDescHeapDesc.NumDescriptors = 1;//とりあえずワールドひとつ
+	transformDescHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	transformDescHeapDesc.NodeMask = 0;
+
+	transformDescHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;//デスクリプタヒープ種別
+	
+	result = _dx12->Device()->CreateDescriptorHeap(&transformDescHeapDesc, IID_PPV_ARGS(_transformHeap.ReleaseAndGetAddressOf()));//生成
+	
+	if (FAILED(result)) 
+	{
+		assert(SUCCEEDED(result));
+		return result;
+	}
+
+	D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc = {};
+
+	cbvDesc.BufferLocation = _transformBuff->GetGPUVirtualAddress();
+	cbvDesc.SizeInBytes = buffSize;
+	
+	_dx12->Device()->CreateConstantBufferView(&cbvDesc, _transformHeap->GetCPUDescriptorHandleForHeapStart());
+
+	return S_OK;
+}
+
+HRESULT PMDActor::CreateMaterialAndTextureView()
+{
 	D3D12_DESCRIPTOR_HEAP_DESC matDescHeapDesc = {};
 
 	matDescHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
@@ -520,8 +490,17 @@ HRESULT PMDActor::CreateMaterialBuffer()
 	matDescHeapDesc.NumDescriptors = materialNum * 5;
 	matDescHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 
-	result = _dx12->Device()->CreateDescriptorHeap(
-		&matDescHeapDesc, IID_PPV_ARGS(&materialDescHeap));
+	auto result = _dx12->Device()->CreateDescriptorHeap(
+				  &matDescHeapDesc, IID_PPV_ARGS(&materialDescHeap));
+
+	if (FAILED(result)) 
+	{
+		assert(SUCCEEDED(result));
+		return result;
+	}
+
+	auto materialBuffSize = sizeof(MaterialForHlsl);
+	materialBuffSize = (materialBuffSize + 0xff) & ~0xff;
 
 	D3D12_CONSTANT_BUFFER_VIEW_DESC matCBVDesc = {};
 
@@ -535,74 +514,73 @@ HRESULT PMDActor::CreateMaterialBuffer()
 	srvDesc.Texture2D.MipLevels = 1;
 
 	// 先頭を記録
-	auto matDescHeapH = materialDescHeap->GetCPUDescriptorHandleForHeapStart();
+	CD3DX12_CPU_DESCRIPTOR_HANDLE matDescHeapH(materialDescHeap->GetCPUDescriptorHandleForHeapStart());
 	auto incSize = _dx12->Device()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
-	ComPtr<ID3D12Resource> whiteTex = CreateWhiteTexture();
-	ComPtr<ID3D12Resource> blackTex = CreateBlackTexture();
-	ComPtr<ID3D12Resource> gradTex = CreateGrayGradationTexture();
-
-	for (int i = 0; i < materialNum; ++i)
+	for (int i = 0; i < materials.size(); ++i)
 	{
+		//マテリアル固定バッファビュー
 		_dx12->Device()->CreateConstantBufferView(&matCBVDesc, matDescHeapH);
+
 		matDescHeapH.ptr += incSize;
+
 		matCBVDesc.BufferLocation += materialBuffSize;
 
-		if (textureResources[i] == nullptr)
-		{
-			srvDesc.Format = whiteTex->GetDesc().Format;
-			_dx12->Device()->CreateShaderResourceView(whiteTex.Get(), &srvDesc, matDescHeapH);
+		if (textureResources[i] == nullptr) {
+			srvDesc.Format = _renderer->whiteTex->GetDesc().Format;
+			_dx12->Device()->CreateShaderResourceView(_renderer->whiteTex.Get(), &srvDesc, matDescHeapH);
 		}
-		else
-		{
+		else {
 			srvDesc.Format = textureResources[i]->GetDesc().Format;
 			_dx12->Device()->CreateShaderResourceView(textureResources[i].Get(), &srvDesc, matDescHeapH);
 		}
-		matDescHeapH.ptr += incSize;
+		matDescHeapH.Offset(incSize);
 
-		if (sphResources[i] == nullptr)
-		{
-			srvDesc.Format = whiteTex->GetDesc().Format;
-			_dx12->Device()->CreateShaderResourceView(whiteTex.Get(), &srvDesc, matDescHeapH);
+		if (sphResources[i] == nullptr) {
+			srvDesc.Format = _renderer->whiteTex->GetDesc().Format;
+			_dx12->Device()->CreateShaderResourceView(_renderer->whiteTex.Get(), &srvDesc, matDescHeapH);
 		}
-		else
-		{
+		else {
 			srvDesc.Format = sphResources[i]->GetDesc().Format;
 			_dx12->Device()->CreateShaderResourceView(sphResources[i].Get(), &srvDesc, matDescHeapH);
 		}
 		matDescHeapH.ptr += incSize;
 
-		if (spaResources[i] == nullptr)
-		{
-			srvDesc.Format = blackTex->GetDesc().Format;
-			_dx12->Device()->CreateShaderResourceView(blackTex.Get(), &srvDesc, matDescHeapH);
+		if (spaResources[i] == nullptr) {
+			srvDesc.Format = _renderer->blackTex->GetDesc().Format;
+			_dx12->Device()->CreateShaderResourceView(_renderer->blackTex.Get(), &srvDesc, matDescHeapH);
 		}
-		else
-		{
+		else {
 			srvDesc.Format = spaResources[i]->GetDesc().Format;
 			_dx12->Device()->CreateShaderResourceView(spaResources[i].Get(), &srvDesc, matDescHeapH);
 		}
 		matDescHeapH.ptr += incSize;
 
-		if (toonResources[i] == nullptr)
-		{
-			srvDesc.Format = gradTex->GetDesc().Format;
-			_dx12->Device()->CreateShaderResourceView(gradTex.Get(), &srvDesc, matDescHeapH);
+
+		if (toonResources[i] == nullptr) {
+			srvDesc.Format = _renderer->gradTex->GetDesc().Format;
+			_dx12->Device()->CreateShaderResourceView(_renderer->gradTex.Get(), &srvDesc, matDescHeapH);
 		}
-		else
-		{
+		else {
 			srvDesc.Format = toonResources[i]->GetDesc().Format;
 			_dx12->Device()->CreateShaderResourceView(toonResources[i].Get(), &srvDesc, matDescHeapH);
 		}
 		matDescHeapH.ptr += incSize;
 	}
 	/*------------------------------------------------------------*/
-	return result;
+	return S_OK;
 }
 
-PMDActor::PMDActor(std::shared_ptr<Dx12Wrapper> dx12, const char* path):_dx12(dx12)
+PMDActor::PMDActor(std::shared_ptr<PMDRenderer> renderer, const char* path):
+	_renderer(renderer),
+	_dx12(renderer->_dx12),
+	angle(0.0f)
 {
+	_transform.world = XMMatrixIdentity();
 	LoadPMDFile(path);
+	CreateTransformView();
+	CreateMaterialBuffer();
+	CreateMaterialAndTextureView();
 }
 
 PMDActor::~PMDActor()
@@ -611,6 +589,8 @@ PMDActor::~PMDActor()
 
 void PMDActor::Update()
 {
+	angle += 0.03f;
+	_mappedTransform->world = XMMatrixRotationY(angle);
 }
 
 void PMDActor::Draw()
@@ -619,7 +599,12 @@ void PMDActor::Draw()
 	_dx12->CommandList()->IASetVertexBuffers(0, 1, &vbView);   // 頂点バッファ
 	_dx12->CommandList()->IASetIndexBuffer(&ibView);		   // インデックスバッファ
 
-	_dx12->CommandList()->SetDescriptorHeaps(1, materialDescHeap.GetAddressOf());
+	ID3D12DescriptorHeap* transheaps[] = { _transformHeap.Get() };
+	_dx12->CommandList()->SetDescriptorHeaps(1, transheaps);
+	_dx12->CommandList()->SetGraphicsRootDescriptorTable(1, _transformHeap->GetGPUDescriptorHandleForHeapStart());
+
+	ID3D12DescriptorHeap* mdh[] = { materialDescHeap.Get() };
+	_dx12->CommandList()->SetDescriptorHeaps(1, mdh);
 
 	auto materialH = materialDescHeap->GetGPUDescriptorHandleForHeapStart();
 	unsigned int idxOffset = 0;
@@ -629,7 +614,7 @@ void PMDActor::Draw()
 
 	for (auto& m : materials)
 	{
-		_dx12->CommandList()->SetGraphicsRootDescriptorTable(1, materialH);
+		_dx12->CommandList()->SetGraphicsRootDescriptorTable(2, materialH);
 
 		_dx12->CommandList()->DrawIndexedInstanced(m.indicesNum, 1, idxOffset, 0, 0);
 
