@@ -92,7 +92,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(DXTEX_DIR)/Bin/Desktop_2019_Win10/x64/Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(DXTEX_DIR)\Desktop_2019_Win10\x64\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -106,7 +106,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(DXTEX_DIR)/Bin/Desktop_2019_Win10/x64/Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(DXTEX_DIR)\Desktop_2019_Win10\x64\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -142,38 +142,38 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="Application\Application.cpp" />
-    <ClCompile Include="Dx12Wrapper\Dx12Wrapper.cpp" />
+    <ClCompile Include="DirectX\Application\Application.cpp" />
+    <ClCompile Include="DirectX\Dx12Wrapper\Dx12Wrapper.cpp" />
+    <ClCompile Include="DirectX\PMD\PMDActor.cpp" />
+    <ClCompile Include="DirectX\PMD\PMDRenderer.cpp" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="PMD\PMDActor.cpp" />
-    <ClCompile Include="PMD\PMDRenderer.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="Shader\BasePixelShader.hlsl">
+    <ClInclude Include="DirectX\Application\Application.h" />
+    <ClInclude Include="DirectX\Dx12Wrapper\Dx12Wrapper.h" />
+    <ClInclude Include="DirectX\PMD\PMDActor.h" />
+    <ClInclude Include="DirectX\PMD\PMDRenderer.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="DirectX\Shader\BasePixelShader.hlsl">
       <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">BasePS</EntryPointName>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Pixel</ShaderType>
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">5.0</ShaderModel>
       <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">BasePS</EntryPointName>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
-    </FxCompile>
-    <FxCompile Include="Shader\BaseVertexShader.hlsl">
-      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">BaseVS</EntryPointName>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Vertex</ShaderType>
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">5.0</ShaderModel>
-      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">BaseVS</EntryPointName>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Vertex</ShaderType>
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
+    </FxCompile>
+    <FxCompile Include="DirectX\Shader\BaseVertexShader.hlsl">
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">BaseVS</EntryPointName>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">BaseVS</EntryPointName>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">5.0</ShaderModel>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Vertex</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Vertex</ShaderType>
     </FxCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="Shader\BaseShaderHeader.hlsli" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="Application\Application.h" />
-    <ClInclude Include="Dx12Wrapper\Dx12Wrapper.h" />
-    <ClInclude Include="PMD\PMDActor.h" />
-    <ClInclude Include="PMD\PMDRenderer.h" />
+    <None Include="DirectX\Shader\BaseShaderHeader.hlsli" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
