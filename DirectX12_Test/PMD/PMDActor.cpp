@@ -316,15 +316,13 @@ HRESULT PMDActor::LoadPMDFile(const char* path)
 
 HRESULT PMDActor::CreateVertexBuffer()
 {
-	HRESULT result = S_OK;
-
-	result = _dx12->Device()->CreateCommittedResource(
-			 &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
-			 D3D12_HEAP_FLAG_NONE,
-			 &CD3DX12_RESOURCE_DESC::Buffer(vertices.size()),
-			 D3D12_RESOURCE_STATE_GENERIC_READ,
-			 nullptr,
-			 IID_PPV_ARGS(&vertBuff)
+	auto result = _dx12->Device()->CreateCommittedResource(
+				  &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+				  D3D12_HEAP_FLAG_NONE,
+				  &CD3DX12_RESOURCE_DESC::Buffer(vertices.size()),
+				  D3D12_RESOURCE_STATE_GENERIC_READ,
+				  nullptr,
+				  IID_PPV_ARGS(&vertBuff)
 	);
 
 	unsigned char* vertMap = nullptr;
@@ -341,15 +339,13 @@ HRESULT PMDActor::CreateVertexBuffer()
 
 HRESULT PMDActor::CreateIndexBuffer()
 {
-	HRESULT result = S_OK;
-
-	result = _dx12->Device()->CreateCommittedResource(
-			 &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
-			 D3D12_HEAP_FLAG_NONE,
-			 &CD3DX12_RESOURCE_DESC::Buffer(indices.size() * sizeof(indices[0])),
-			 D3D12_RESOURCE_STATE_GENERIC_READ,
-			 nullptr,
-			 IID_PPV_ARGS(&idxBuff)
+	auto result = _dx12->Device()->CreateCommittedResource(
+				  &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+				  D3D12_HEAP_FLAG_NONE,
+				  &CD3DX12_RESOURCE_DESC::Buffer(indices.size() * sizeof(indices[0])),
+				  D3D12_RESOURCE_STATE_GENERIC_READ,
+				  nullptr,
+				  IID_PPV_ARGS(&idxBuff)
 	);
 
 	unsigned short* mappedIndex = nullptr;
@@ -614,8 +610,6 @@ void PMDActor::Update()
 {
 //	angle += 0.03f;
 //	_mappedMatrices[0] = XMMatrixRotationY(angle);
-
-	
 }
 
 void PMDActor::Draw()

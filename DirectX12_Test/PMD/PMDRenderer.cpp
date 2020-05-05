@@ -291,18 +291,8 @@ void PMDRenderer::Update()
 {
 	
 }
+
 void PMDRenderer::Draw() 
 {
 	
 }
-
-void PMDRenderer::SetCmdList()
-{
-	_dx12->CommandList()->SetPipelineState(pipelinestate.Get());
-	_dx12->CommandList()->SetGraphicsRootSignature(rootSignature.Get());
-}
-
-PMDRenderer::ComPtr<ID3D12PipelineState> PMDRenderer::GetPipelineState() { return pipelinestate; }
-
-PMDRenderer::ComPtr<ID3D12RootSignature> PMDRenderer::GetRootSignature() { return rootSignature; }
-

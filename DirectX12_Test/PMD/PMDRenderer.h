@@ -40,11 +40,13 @@ private:
 	HRESULT CreateRootSignature();
 public:
 	PMDRenderer(std::shared_ptr<Dx12Wrapper> dx12);
+	
 	~PMDRenderer();
+	
 	void Update();
 	void Draw();
-	void SetCmdList();
-	ComPtr<ID3D12PipelineState> GetPipelineState();
-	ComPtr<ID3D12RootSignature> GetRootSignature();
+	
+	ComPtr<ID3D12PipelineState> GetPipelineState() { return pipelinestate; }
+	ComPtr<ID3D12RootSignature> GetRootSignature() { return rootSignature; }
 };
 

@@ -16,9 +16,6 @@
 using namespace DirectX;
 using namespace std;
 
-const unsigned int window_width = 1280;
-const unsigned int window_height = 720;
-
 // –Ê“|‚¾‚¯‚Ç‘‚©‚È‚ ‚©‚ñ‚â‚Â
 LRESULT WindowProcedure(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
 	if (msg == WM_DESTROY) // ƒEƒBƒ“ƒhƒE‚ª”jŠü‚³‚ê‚½‚çŒÄ‚Î‚ê‚Ü‚·
@@ -109,7 +106,8 @@ void Application::Run()
 
 		_pmdRenderer->Update();
 
-		_pmdRenderer->SetCmdList();
+		_dx12->CommandList()->SetPipelineState(_pmdRenderer->GetPipelineState().Get());
+		_dx12->CommandList()->SetGraphicsRootSignature(_pmdRenderer->GetRootSignature().Get());
 
 		_dx12->SetScene();
 
@@ -140,15 +138,4 @@ SIZE Application::GetWindowSize() const
 Application& Application::Instance() {
 	static Application instance;
 	return instance;
-}
-
-Application::Application()
-{
-	auto result = CoInitializeEx(0, COINIT_MULTITHREADED);
-}
-
-
-Application::~Application()
-{
-	CoUninitialize();
 }
