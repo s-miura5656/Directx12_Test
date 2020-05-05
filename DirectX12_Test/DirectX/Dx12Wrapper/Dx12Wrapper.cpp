@@ -65,6 +65,7 @@ Dx12Wrapper::Dx12Wrapper(HWND hwnd) {
 #ifdef _DEBUG
 	EnableDebugLayer();
 #endif
+	auto result = CoInitializeEx(0, COINIT_MULTITHREADED);
 
 	auto& app = Application::Instance();
 	windowSize = app.GetWindowSize();
@@ -123,6 +124,8 @@ Dx12Wrapper::~Dx12Wrapper()
 	{
 		debugInterface->ReportLiveDeviceObjects(D3D12_RLDO_DETAIL | D3D12_RLDO_IGNORE_INTERNAL);
 	}
+
+	CoUninitialize();
 }
 
 void Dx12Wrapper::Update()
@@ -604,9 +607,3 @@ ID3D12Resource* Dx12Wrapper::LoadTextureFromFile(const char* texpath)
 
 	return texBuff;
 }
-
-ComPtr<ID3D12Device> Dx12Wrapper::Device() { return _dev; }
-
-ComPtr<ID3D12GraphicsCommandList> Dx12Wrapper::CommandList() { return _cmdList; }
-
-ComPtr<IDXGISwapChain4> Dx12Wrapper::SwapChain() { return _swapchain; }

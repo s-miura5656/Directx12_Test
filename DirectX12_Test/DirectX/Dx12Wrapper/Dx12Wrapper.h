@@ -69,6 +69,7 @@ private:
 	// デプスバッファ作成
 	HRESULT CreateDepthBuffer();
 	// テクスチャファイルの読み込み
+	// @param texpath テクスチャファイルパス
 	ID3D12Resource* LoadTextureFromFile(const char* texpath);
 
 
@@ -90,9 +91,8 @@ public:
 	///@param texpath テクスチャファイルパス
 	ID3D12Resource* GetTextureByPath(const char* texpath);
 
-	ComPtr<ID3D12Device> Device();
-	ComPtr<ID3D12GraphicsCommandList> CommandList();
-	ComPtr<IDXGISwapChain4> SwapChain();
-
+	inline ComPtr<ID3D12Device> Device() { return _dev; }
+	inline ComPtr<ID3D12GraphicsCommandList> CommandList() { return _cmdList; }
+	inline ComPtr<IDXGISwapChain4> SwapChain() { return _swapchain; }
 };
 

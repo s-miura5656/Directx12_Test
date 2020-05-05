@@ -126,7 +126,7 @@ HRESULT PMDRenderer::CreateGraphicsPipelineForPMD()
 	ComPtr<ID3DBlob> _psBlob = nullptr;
 	ComPtr<ID3DBlob> errorBlob = nullptr;
 
-	auto result = D3DCompileFromFile(L"Shader/BaseVertexShader.hlsl",
+	auto result = D3DCompileFromFile(L"DirectX/Shader/BaseVertexShader.hlsl",
 									 nullptr,
 									 D3D_COMPILE_STANDARD_FILE_INCLUDE,
 									 "BaseVS", "vs_5_0",
@@ -140,7 +140,7 @@ HRESULT PMDRenderer::CreateGraphicsPipelineForPMD()
 	}
 
 
-	result = D3DCompileFromFile(L"Shader/BasePixelShader.hlsl",
+	result = D3DCompileFromFile(L"DirectX/Shader/BasePixelShader.hlsl",
 								nullptr,
 								D3D_COMPILE_STANDARD_FILE_INCLUDE,
 								"BasePS", "ps_5_0",
@@ -291,18 +291,8 @@ void PMDRenderer::Update()
 {
 	
 }
+
 void PMDRenderer::Draw() 
 {
 	
 }
-
-void PMDRenderer::SetCmdList()
-{
-	_dx12->CommandList()->SetPipelineState(pipelinestate.Get());
-	_dx12->CommandList()->SetGraphicsRootSignature(rootSignature.Get());
-}
-
-PMDRenderer::ComPtr<ID3D12PipelineState> PMDRenderer::GetPipelineState() { return pipelinestate; }
-
-PMDRenderer::ComPtr<ID3D12RootSignature> PMDRenderer::GetRootSignature() { return rootSignature; }
-

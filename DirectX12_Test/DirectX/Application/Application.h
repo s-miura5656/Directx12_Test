@@ -21,6 +21,10 @@ class PMDActor;
 class Application
 {
 private:
+	// 定数宣言 /////////////////////////////////////////////////////////////////////////////
+	const unsigned int window_width = 1280;
+	const unsigned int window_height = 720;
+
 	template<typename T>
 	using ComPtr = Microsoft::WRL::ComPtr<T>;
 
@@ -37,7 +41,7 @@ private:
 	
 	//↓シングルトンのためにコンストラクタをprivateに
 	//さらにコピーと代入を禁止に
-	Application();
+	Application() {};
 	Application(const Application&) = delete;
 	void operator=(const Application&) = delete;
 public:
@@ -53,6 +57,6 @@ public:
 	///後処理
 	void Terminate();
 	SIZE GetWindowSize() const;
-	~Application();
+	~Application() {};
 };
 
