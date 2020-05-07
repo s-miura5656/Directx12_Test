@@ -6,6 +6,7 @@
 #include <wrl.h>
 #include <string>
 #include <memory>
+#include <unordered_map>
 #include <map>
 
 
@@ -106,6 +107,7 @@ private:
 	std::vector<DirectX::XMMATRIX> _boneMatrices;
 	std::map<std::string, BoneNode> _boneNodeTable;
 	DirectX::XMMATRIX* _mappedMatrices = nullptr;
+	std::unordered_map <std::string, std::vector<KeyFrame>> _motiondata;
 
 	Transform _transform;
 	Transform* _mappedTransform = nullptr;
@@ -114,6 +116,8 @@ private:
 	ComPtr<ID3D12DescriptorHeap> _transformHeap = nullptr;//座標変換ヒープ
 
 	float angle;
+	DWORD startTime;
+	DWORD elapsedTime;
 
 	// PMD ファイルのロード
 	HRESULT LoadPMDFile(const char* path);
@@ -129,6 +133,8 @@ private:
 	HRESULT CreateMaterialAndTextureView();
 	// 再帰関数
 	void RecursiveMatrixMultipy(BoneNode* node, DirectX::XMMATRIX& mat);
+	// モーション再生
+	void MotionUpdate();
 
 public:
 	PMDActor(std::shared_ptr<PMDRenderer> renderer, const char* path);
@@ -138,5 +144,6 @@ public:
 	void Draw();
 
 	void LoadVMDFile(const char* filepath, const char* name);
+	void PlayAnimation();
 };
 

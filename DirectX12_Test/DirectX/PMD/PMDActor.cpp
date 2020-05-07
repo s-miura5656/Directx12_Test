@@ -2,10 +2,13 @@
 #include "PMDRenderer.h"
 #include "../Dx12Wrapper/Dx12Wrapper.h"
 #include <d3dx12.h>
+#include <sstream>
 
 using namespace Microsoft::WRL;
 using namespace std;
 using namespace DirectX;
+
+#pragma comment(lib,"winmm.lib")
 
 namespace 
 {
@@ -570,6 +573,65 @@ void PMDActor::RecursiveMatrixMultipy(BoneNode* node, XMMATRIX& mat)
 	}
 }
 
+void PMDActor::MotionUpdate()
+{
+	elapsedTime = timeGetTime() - startTime;
+
+	unsigned int frameNo = 30 * (elapsedTime / 1000.f);
+
+	//行列情報クリア(してないと前フレームのポーズが重ね掛けされてモデルが壊れる)
+	std::fill(_boneMatrices.begin(), _boneMatrices.end(), XMMatrixIdentity());
+
+	//モーションデータ更新
+	for (auto& bonemotion : _motiondata) 
+	{
+		auto node = _boneNodeTable[bonemotion.first];
+		
+		//合致するものを探す
+		auto motions = bonemotion.second;
+
+		auto rit = find_if(motions.rbegin(), motions.rend(), [frameNo](const KeyFrame& keyframe) 
+		{ return keyframe.frameNo <= frameNo; });
+
+		//合致するものがなければ飛ばす
+		if (rit == motions.rend())
+		{
+			continue;
+		}
+		
+		XMMATRIX rotation;
+		
+		auto it = rit.base();
+		
+		if (it != motions.end()) 
+		{
+			auto t = static_cast<float>(frameNo - rit->frameNo) 
+				   / static_cast<float>(it->frameNo - rit->frameNo);
+			
+			rotation = XMMatrixRotationQuaternion(rit->quaternion)
+					 * (1 - t)
+					 + XMMatrixRotationQuaternion(it->quaternion)
+					 * t;
+		}
+		else 
+		{
+			rotation = XMMatrixRotationQuaternion(rit->quaternion);
+		}
+
+		auto& pos = node.startPos;
+		
+		auto mat = XMMatrixTranslation(-pos.x, -pos.y, -pos.z) 
+			     * rotation 
+			     * XMMatrixTranslation(pos.x, pos.y, pos.z);
+		
+		_boneMatrices[node.boneIdx] = mat;
+	}
+	
+	RecursiveMatrixMultipy(&_boneNodeTable["センター"], _transform.world);
+
+	copy(_boneMatrices.begin(), _boneMatrices.end(), _mappedMatrices + 1);
+}
+
 PMDActor::PMDActor(std::shared_ptr<PMDRenderer> renderer, const char* path):
 	_renderer(renderer),
 	_dx12(renderer->_dx12),
@@ -611,6 +673,7 @@ PMDActor::~PMDActor()
 
 void PMDActor::Update()
 {
+	MotionUpdate();
 //	angle += 0.03f;
 //	_mappedMatrices[0] = XMMatrixRotationY(angle);
 }
@@ -669,8 +732,6 @@ void PMDActor::LoadVMDFile(const char* filepath, const char* name)
 			+ sizeof(motion.bezier), 1, fp);
 	}
 
-	std::unordered_map <std::string, std::vector<KeyFrame>> _motiondata;
-
 	for (auto& vmdMotion : vmdMotionData)
 	{
 		XMVECTOR vector_quaternion = XMLoadFloat4(&vmdMotion.quaternion);
@@ -689,4 +750,9 @@ void PMDActor::LoadVMDFile(const char* filepath, const char* name)
 
 	RecursiveMatrixMultipy(&_boneNodeTable["センター"], _transform.world);
 	copy(_boneMatrices.begin(), _boneMatrices.end(), _mappedMatrices + 1);
+}
+
+void PMDActor::PlayAnimation()
+{
+	startTime = timeGetTime();
 }

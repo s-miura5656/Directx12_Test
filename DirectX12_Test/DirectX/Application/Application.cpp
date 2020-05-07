@@ -80,8 +80,8 @@ bool Application::Init()
 	_pmdRenderer.reset(new PMDRenderer(_dx12));
 
 	_pmdActor.reset(new PMDActor(_pmdRenderer, "Content/Model/初音ミク.pmd"));
-	_pmdActor->LoadVMDFile("Content/Motion/pose.vmd", "pose");
-	
+	_pmdActor->LoadVMDFile("Content/Motion/swing.vmd", "swing");
+	_pmdActor->PlayAnimation();
 	ShowWindow(_hwnd, SW_SHOW); // ウィンドウ表示
 
 	return true;
