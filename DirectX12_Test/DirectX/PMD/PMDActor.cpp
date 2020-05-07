@@ -296,6 +296,9 @@ HRESULT PMDActor::LoadPMDFile(const char* path)
 
 	_boneMatrices.resize(pmdBones.size());
 
+
+	
+
 	// ボーンをすべて初期化
 	std::fill(_boneMatrices.begin(), 
 			  _boneMatrices.end(), 
@@ -578,28 +581,28 @@ PMDActor::PMDActor(std::shared_ptr<PMDRenderer> renderer, const char* path):
 	CreateMaterialBuffer();
 	CreateMaterialAndTextureView();
 
-	auto armNode = _boneNodeTable["左腕"];
-
-	auto& armPos = armNode.startPos;
-
-	auto armMat = XMMatrixTranslation(-armPos.x, -armPos.y, -armPos.z)   // 1 ボーン基準点を原点へ戻すように平行移動
-				* XMMatrixRotationZ(XM_PIDIV2)  						 // 2 ９０°回転
-				* XMMatrixTranslation(armPos.x, armPos.y, armPos.z);	 // 3 ボーンを元のボーン基準点へ戻すように平行移動
-
-	auto elbowNode = _boneNodeTable["左ひじ"];
-
-	auto& elbowPos = elbowNode.startPos;
-
-	auto elbowMat = XMMatrixTranslation(-elbowPos.x, -elbowPos.y, -elbowPos.z)   // 1 ボーン基準点を原点へ戻すように平行移動
-				  * XMMatrixRotationZ(-XM_PIDIV2)  								 // 2 ９０°回転
-				  * XMMatrixTranslation(elbowPos.x, elbowPos.y, elbowPos.z);	 // 3 ボーンを元のボーン基準点へ戻すように平行移動
-
-	_boneMatrices[armNode.boneIdx] = armMat;
-	_boneMatrices[elbowNode.boneIdx] = elbowMat;
-
-	RecursiveMatrixMultipy(&_boneNodeTable["センター"], _transform.world);
-
-	copy(_boneMatrices.begin(), _boneMatrices.end(), _mappedMatrices + 1);
+//	auto armNode = _boneNodeTable["左腕"];
+//
+//	auto& armPos = armNode.startPos;
+//
+//	auto armMat = XMMatrixTranslation(-armPos.x, -armPos.y, -armPos.z)   // 1 ボーン基準点を原点へ戻すように平行移動
+//				* XMMatrixRotationZ(XM_PIDIV2)  						 // 2 ９０°回転
+//				* XMMatrixTranslation(armPos.x, armPos.y, armPos.z);	 // 3 ボーンを元のボーン基準点へ戻すように平行移動
+//
+//	auto elbowNode = _boneNodeTable["左ひじ"];
+//
+//	auto& elbowPos = elbowNode.startPos;
+//
+//	auto elbowMat = XMMatrixTranslation(-elbowPos.x, -elbowPos.y, -elbowPos.z)   // 1 ボーン基準点を原点へ戻すように平行移動
+//				  * XMMatrixRotationZ(-XM_PIDIV2)  								 // 2 ９０°回転
+//				  * XMMatrixTranslation(elbowPos.x, elbowPos.y, elbowPos.z);	 // 3 ボーンを元のボーン基準点へ戻すように平行移動
+//
+//	_boneMatrices[armNode.boneIdx] = armMat;
+//	_boneMatrices[elbowNode.boneIdx] = elbowMat;
+//
+//	RecursiveMatrixMultipy(&_boneNodeTable["センター"], _transform.world);
+//
+//	copy(_boneMatrices.begin(), _boneMatrices.end(), _mappedMatrices + 1);
 }
 
 PMDActor::~PMDActor()
@@ -642,4 +645,48 @@ void PMDActor::Draw()
 
 		idxOffset += m.indicesNum;
 	}
+}
+
+void PMDActor::LoadVMDFile(const char* filepath, const char* name)
+{
+	auto fp = fopen(filepath, "rb");
+
+	fseek(fp, 50, SEEK_SET);
+
+	unsigned int motionDataNum = 0;
+
+	fread(&motionDataNum, sizeof(motionDataNum), 1, fp);
+
+	std::vector<VMDMotionData> vmdMotionData(motionDataNum);
+
+	for (auto& motion : vmdMotionData)
+	{
+		fread(motion.boneName, sizeof(motion.boneName), 1, fp);
+		fread(&motion.frameNo,
+			sizeof(motion.frameNo)
+			+ sizeof(motion.location)
+			+ sizeof(motion.quaternion)
+			+ sizeof(motion.bezier), 1, fp);
+	}
+
+	std::unordered_map <std::string, std::vector<KeyFrame>> _motiondata;
+
+	for (auto& vmdMotion : vmdMotionData)
+	{
+		XMVECTOR vector_quaternion = XMLoadFloat4(&vmdMotion.quaternion);
+		_motiondata[vmdMotion.boneName].emplace_back(KeyFrame(vmdMotion.frameNo, vector_quaternion));
+	}
+
+	for (auto& bonemotion : _motiondata)
+	{
+		auto node = _boneNodeTable[bonemotion.first];
+		auto& pos = node.startPos;
+		auto mat = XMMatrixTranslation(-pos.x, -pos.y, -pos.z)
+				 * XMMatrixRotationQuaternion(bonemotion.second[0].quaternion)
+				 * XMMatrixTranslation(pos.x, pos.y, pos.z);
+		_boneMatrices[node.boneIdx] = mat;
+	}
+
+	RecursiveMatrixMultipy(&_boneNodeTable["センター"], _transform.world);
+	copy(_boneMatrices.begin(), _boneMatrices.end(), _mappedMatrices + 1);
 }
