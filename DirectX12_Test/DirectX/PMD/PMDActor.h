@@ -73,8 +73,9 @@ private:
 	{
 		unsigned int frameNo;
 		DirectX::XMVECTOR quaternion;
-		KeyFrame(unsigned int fno, DirectX::XMVECTOR& q)
-			: frameNo(fno), quaternion(q) {}
+		DirectX::XMFLOAT2 p1, p2;
+		KeyFrame(unsigned int fno, DirectX::XMVECTOR& q, const DirectX::XMFLOAT2& ip1, const DirectX::XMFLOAT2& ip2)
+			: frameNo(fno), quaternion(q), p1(ip1), p2(ip2) {}
 	};
 
 	template<typename T>
@@ -118,6 +119,7 @@ private:
 	float angle;
 	DWORD startTime;
 	DWORD elapsedTime;
+	unsigned int duration;
 
 	// PMD ファイルのロード
 	HRESULT LoadPMDFile(const char* path);
@@ -145,5 +147,6 @@ public:
 
 	void LoadVMDFile(const char* filepath, const char* name);
 	void PlayAnimation();
+	float GetYFromXOnBezier(float x, const DirectX::XMFLOAT2& a, const DirectX::XMFLOAT2& b, uint8_t n);
 };
 

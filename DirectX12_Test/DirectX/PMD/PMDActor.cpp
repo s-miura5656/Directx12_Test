@@ -582,6 +582,12 @@ void PMDActor::MotionUpdate()
 	//行列情報クリア(してないと前フレームのポーズが重ね掛けされてモデルが壊れる)
 	std::fill(_boneMatrices.begin(), _boneMatrices.end(), XMMatrixIdentity());
 
+	if (frameNo > duration)
+	{
+		startTime = timeGetTime();
+		frameNo = 0;
+	}
+
 	//モーションデータ更新
 	for (auto& bonemotion : _motiondata) 
 	{
@@ -590,8 +596,8 @@ void PMDActor::MotionUpdate()
 		//合致するものを探す
 		auto motions = bonemotion.second;
 
-		auto rit = find_if(motions.rbegin(), motions.rend(), [frameNo](const KeyFrame& keyframe) 
-		{ return keyframe.frameNo <= frameNo; });
+		auto rit = find_if(motions.rbegin(), motions.rend(), 
+			[frameNo](const KeyFrame& keyframe) { return keyframe.frameNo <= frameNo; });
 
 		//合致するものがなければ飛ばす
 		if (rit == motions.rend())
@@ -608,10 +614,14 @@ void PMDActor::MotionUpdate()
 			auto t = static_cast<float>(frameNo - rit->frameNo) 
 				   / static_cast<float>(it->frameNo - rit->frameNo);
 			
-			rotation = XMMatrixRotationQuaternion(rit->quaternion)
-					 * (1 - t)
-					 + XMMatrixRotationQuaternion(it->quaternion)
-					 * t;
+			t = GetYFromXOnBezier(t, it->p1, it->p2, 12);
+
+			rotation = XMMatrixRotationQuaternion(XMQuaternionSlerp(rit->quaternion, it->quaternion, t));
+
+//			rotation = XMMatrixRotationQuaternion(rit->quaternion)
+//					 * (1 - t)
+//					 + XMMatrixRotationQuaternion(it->quaternion)
+//					 * t;
 		}
 		else 
 		{
@@ -730,21 +740,44 @@ void PMDActor::LoadVMDFile(const char* filepath, const char* name)
 			+ sizeof(motion.location)
 			+ sizeof(motion.quaternion)
 			+ sizeof(motion.bezier), 1, fp);
+
+		duration = std::max<unsigned int>(duration, motion.frameNo);
 	}
 
 	for (auto& vmdMotion : vmdMotionData)
 	{
 		XMVECTOR vector_quaternion = XMLoadFloat4(&vmdMotion.quaternion);
-		_motiondata[vmdMotion.boneName].emplace_back(KeyFrame(vmdMotion.frameNo, vector_quaternion));
+		_motiondata[vmdMotion.boneName].emplace_back(KeyFrame(vmdMotion.frameNo, vector_quaternion, 
+													XMFLOAT2((float)vmdMotion.bezier[3] / 127.0f, (float)vmdMotion.bezier[7] / 127.0f), 
+													XMFLOAT2((float)vmdMotion.bezier[11] / 127.0f, (float)vmdMotion.bezier[15] / 127.0f)));
+	}
+
+	for (auto& motion : _motiondata)
+	{
+		sort(motion.second.begin(), motion.second.end(), 
+			[](const KeyFrame& lval, const KeyFrame& rval) 
+			{ return lval.frameNo <= rval.frameNo; });
 	}
 
 	for (auto& bonemotion : _motiondata)
 	{
-		auto node = _boneNodeTable[bonemotion.first];
+		auto itBoneNode = _boneNodeTable.find(bonemotion.first);
+		
+		if (itBoneNode == _boneNodeTable.end())
+		{
+			continue;
+		
+		}
+		
+//		auto node = _boneNodeTable[bonemotion.first];
+		auto node = itBoneNode->second;
+
 		auto& pos = node.startPos;
+		
 		auto mat = XMMatrixTranslation(-pos.x, -pos.y, -pos.z)
 				 * XMMatrixRotationQuaternion(bonemotion.second[0].quaternion)
 				 * XMMatrixTranslation(pos.x, pos.y, pos.z);
+		
 		_boneMatrices[node.boneIdx] = mat;
 	}
 
@@ -755,4 +788,40 @@ void PMDActor::LoadVMDFile(const char* filepath, const char* name)
 void PMDActor::PlayAnimation()
 {
 	startTime = timeGetTime();
+}
+
+float PMDActor::GetYFromXOnBezier(float x, const XMFLOAT2& a, const XMFLOAT2& b, uint8_t n)
+{
+	if (a.x == a.y && b.x == b.y)
+	{
+		return x;
+	}
+
+	float t = x;
+	const float k0 = 1 + 3 * a.x - 3 * b.x; // t^3 の係数
+	const float k1 = 3 * b.x - 6 * a.x;     // t^2 の係数
+	const float k2 = 3 * a.x;				// t の係数
+
+	// 誤差の範囲内かどうかに使用する定数
+	const float epsilon = 0.0005f;
+
+	// t を近似値で求める
+	for (int i = 0; i < n; i++)
+	{
+		// f(t) を求める
+		auto ft = (k0 * t * t * t) + (k1 * t * t) + (k2 * t) - x;
+
+		// もし結果が 0 に近い ( 誤差の範囲内 ) なら打ち切る
+		if (ft <= epsilon && ft >= -epsilon)
+		{
+			break;
+		}
+
+		t -= ft / 2; // 刻む
+	}
+
+	// 求めたい t はすでに求めているので y を計算する
+	auto r = 1 - t;
+
+	return (t * t * t) + (3 * t * t * r * b.y) + (3 * t * r * r * a.y);
 }
