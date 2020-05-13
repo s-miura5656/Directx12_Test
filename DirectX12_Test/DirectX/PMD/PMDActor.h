@@ -78,6 +78,17 @@ private:
 			: frameNo(fno), quaternion(q), p1(ip1), p2(ip2) {}
 	};
 
+	struct PMDIK 
+	{
+		uint16_t boneIdx;
+		uint16_t targetIdx;
+		uint16_t iterations;
+		float limit;
+		std::vector<uint16_t> nodeIdx;
+	};
+
+	std::vector<PMDIK> pmdIkData;
+
 	template<typename T>
 	using ComPtr = Microsoft::WRL::ComPtr<T>;
 
@@ -138,6 +149,10 @@ private:
 	// ÉÇÅ[ÉVÉáÉìçƒê∂
 	void MotionUpdate();
 
+	float GetYFromXOnBezier(float x, const DirectX::XMFLOAT2& a, const DirectX::XMFLOAT2& b, uint8_t n);
+	
+	void IkDebug(std::vector<PMDIK> pmd_Ik_Data);
+
 public:
 	PMDActor(std::shared_ptr<PMDRenderer> renderer, const char* path);
 	~PMDActor();
@@ -147,6 +162,5 @@ public:
 
 	void LoadVMDFile(const char* filepath, const char* name);
 	void PlayAnimation();
-	float GetYFromXOnBezier(float x, const DirectX::XMFLOAT2& a, const DirectX::XMFLOAT2& b, uint8_t n);
 };
 

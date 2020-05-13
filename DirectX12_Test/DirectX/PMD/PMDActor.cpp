@@ -250,6 +250,10 @@ HRESULT PMDActor::LoadPMDFile(const char* path)
 		}
 	}
 
+	unsigned short boneNum = 0;
+
+	fread(&boneNum, sizeof(boneNum), 1, fp);
+
 #pragma pack(1)
 	// 読み込み用ボーン構造体
 	struct PMDBone
@@ -263,13 +267,41 @@ HRESULT PMDActor::LoadPMDFile(const char* path)
 	};
 #pragma pack()
 
-	unsigned short boneNum = 0;
-
-	fread(&boneNum, sizeof(boneNum), 1, fp);
-
 	std::vector<PMDBone> pmdBones(boneNum);
 
 	fread(pmdBones.data(), sizeof(PMDBone), boneNum, fp);
+
+	uint16_t ikNum = 0;
+
+	fread(&ikNum, sizeof(ikNum), 1, fp);
+
+	pmdIkData.resize(ikNum);
+
+	for (auto& ik : pmdIkData)
+	{
+		fread(&ik.boneIdx, sizeof(ik.boneIdx), 1, fp);
+		
+		fread(&ik.targetIdx, sizeof(ik.targetIdx), 1, fp);
+		
+		uint8_t chainLen = 0;
+		
+		fread(&chainLen, sizeof(chainLen), 1, fp);
+		
+		ik.nodeIdx.resize(chainLen);
+		
+		fread(&ik.iterations, sizeof(ik.iterations), 1, fp);
+		
+		fread(&ik.limit, sizeof(ik.limit), 1, fp);
+
+		if (chainLen == 0)
+		{
+			continue;
+		}
+
+		fread(ik.nodeIdx.data(), sizeof(ik.nodeIdx[0]), chainLen, fp);
+	}
+
+	fclose(fp);
 
 	// インデックスと名前の対応関係構築のために後で使う
 	std::vector<std::string> boneNames(pmdBones.size());
@@ -299,17 +331,13 @@ HRESULT PMDActor::LoadPMDFile(const char* path)
 
 	_boneMatrices.resize(pmdBones.size());
 
-
-	
-
 	// ボーンをすべて初期化
 	std::fill(_boneMatrices.begin(), 
 			  _boneMatrices.end(), 
 		      XMMatrixIdentity());
 
+	IkDebug(pmdIkData);
 
-
-	fclose(fp);
 
 	CreateVertexBuffer();
 
@@ -748,7 +776,7 @@ void PMDActor::LoadVMDFile(const char* filepath, const char* name)
 	{
 		XMVECTOR vector_quaternion = XMLoadFloat4(&vmdMotion.quaternion);
 		_motiondata[vmdMotion.boneName].emplace_back(KeyFrame(vmdMotion.frameNo, vector_quaternion, 
-													XMFLOAT2((float)vmdMotion.bezier[3] / 127.0f, (float)vmdMotion.bezier[7] / 127.0f), 
+													XMFLOAT2((float)vmdMotion.bezier[3] / 127.0f, (float)vmdMotion.bezier[7] / 127.0f),
 													XMFLOAT2((float)vmdMotion.bezier[11] / 127.0f, (float)vmdMotion.bezier[15] / 127.0f)));
 	}
 
@@ -769,7 +797,6 @@ void PMDActor::LoadVMDFile(const char* filepath, const char* name)
 		
 		}
 		
-//		auto node = _boneNodeTable[bonemotion.first];
 		auto node = itBoneNode->second;
 
 		auto& pos = node.startPos;
@@ -824,4 +851,36 @@ float PMDActor::GetYFromXOnBezier(float x, const XMFLOAT2& a, const XMFLOAT2& b,
 	auto r = 1 - t;
 
 	return (t * t * t) + (3 * t * t * r * b.y) + (3 * t * r * r * a.y);
+}
+
+void PMDActor::IkDebug(std::vector<PMDIK> pmd_Ik_Data)
+{
+	auto getNameFromIdx = [&](uint16_t idx)->string
+	{
+		auto it = find_if(_boneNodeTable.begin(), _boneNodeTable.end(),
+			[idx](const pair<string, BoneNode>& obj) { return obj.second.boneIdx == idx; });
+
+		if (it != _boneNodeTable.end())
+		{
+			return it->first;
+		}
+		else
+		{
+			return "";
+		}
+	};
+
+	for (auto& ik : pmd_Ik_Data)
+	{
+		std::ostringstream oss;
+
+		oss << "IKボーン番号=" << ik.boneIdx << ":" << getNameFromIdx(ik.boneIdx) << endl;
+
+		for (auto& node : ik.nodeIdx)
+		{
+			oss << "\tノードボーン=" << node << ":" << getNameFromIdx(node) << endl;
+		}
+
+		OutputDebugStringA(oss.str().c_str());
+	}
 }
