@@ -52,14 +52,6 @@ private:
 		DirectX::XMMATRIX world;
 	};
 
-	struct BoneNode
-	{
-		int boneIdx;					 // ボーンインデックス
-		DirectX::XMFLOAT3 startPos;				 // ボーン基準点 ( 回転の中心 )
-		DirectX::XMFLOAT3 endPos;				 // ボーン先端点 ( 実際のスキニングには利用しない )
-		std::vector<BoneNode*> children; // 子ノード
-	};
-
 	struct VMDMotionData
 	{
 		char boneName[15];            // ボーン名
@@ -73,9 +65,27 @@ private:
 	{
 		unsigned int frameNo;
 		DirectX::XMVECTOR quaternion;
+		DirectX::XMFLOAT3 offset;
 		DirectX::XMFLOAT2 p1, p2;
-		KeyFrame(unsigned int fno, DirectX::XMVECTOR& q, const DirectX::XMFLOAT2& ip1, const DirectX::XMFLOAT2& ip2)
-			: frameNo(fno), quaternion(q), p1(ip1), p2(ip2) {}
+		KeyFrame(unsigned int fno, DirectX::XMVECTOR& q, DirectX::XMFLOAT3 ofst, const DirectX::XMFLOAT2& ip1, const DirectX::XMFLOAT2& ip2)
+			: frameNo(fno), quaternion(q), offset(ofst), p1(ip1), p2(ip2) {}
+	};
+
+
+//	struct BoneNode
+//	{
+//		int boneIdx;					 // ボーンインデックス
+//		DirectX::XMFLOAT3 startPos;	     // ボーン基準点 ( 回転の中心 )
+//		DirectX::XMFLOAT3 endPos;	     // ボーン先端点 ( 実際のスキニングには利用しない )
+//		std::vector<BoneNode*> children; // 子ノード
+//	};
+
+	struct BoneNode {
+		uint32_t boneIdx;                // ボーンインデックス
+		uint32_t boneType;               // ボーン種別
+		uint32_t ikParentBone;           // IK親ボーン
+		DirectX::XMFLOAT3 startPos;      // ボーン基準点(回転中心)
+		std::vector<BoneNode*> children; // 子ノード
 	};
 
 	struct PMDIK 
@@ -120,6 +130,8 @@ private:
 	std::map<std::string, BoneNode> _boneNodeTable;
 	DirectX::XMMATRIX* _mappedMatrices = nullptr;
 	std::unordered_map <std::string, std::vector<KeyFrame>> _motiondata;
+	std::vector<string> _boneNameArray;
+	std::vector<BoneNode*> boneNodeAddressArray;
 
 	Transform _transform;
 	Transform* _mappedTransform = nullptr;
@@ -153,6 +165,19 @@ private:
 	
 	void IkDebug(std::vector<PMDIK> pmd_Ik_Data);
 
+	// CCDIK によりボーン方向を解決
+	// @param ik 対象 IK オブジェクト
+	void SolveCCDIK(const PMDIK& ik);
+
+	// 余弦定理 IK によりボーン方向を解決
+	// @param ik 対象 IK オブジェクト
+	void SolveCosineIK(const PMDIK& ik);
+
+	// LookAt 行列によりボーン方向を解決
+	// @param ik 対象 IK オブジェクト
+	void SolveLookAt(const PMDIK& ik);
+
+	void IKSolve();
 public:
 	PMDActor(std::shared_ptr<PMDRenderer> renderer, const char* path);
 	~PMDActor();

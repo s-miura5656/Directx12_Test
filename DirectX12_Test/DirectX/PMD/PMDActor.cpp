@@ -80,6 +80,19 @@ namespace
 		ret.second = path.substr(idx + 1, path.length() - idx - 1);
 		return ret;
 	}
+
+	//ボーン種別
+	enum class BoneType 
+	{
+		Rotation,      // 回転
+		RotAndMove,    // 回転＆移動
+		IK,            // IK
+		Undefined,     // 未定義
+		IKChild,       // IK影響ボーン
+		RotationChild, // 回転影響ボーン
+		IKDestination, // IK接続先
+		Invisible      // 見えないボーン
+	};
 }
 
 void* PMDActor::Transform::operator new(size_t size) 
@@ -306,6 +319,9 @@ HRESULT PMDActor::LoadPMDFile(const char* path)
 	// インデックスと名前の対応関係構築のために後で使う
 	std::vector<std::string> boneNames(pmdBones.size());
 
+	_boneNameArray.resize(pmdBones.size());
+
+
 	// ボーンノードマップを作る
 	for (int idx = 0; idx < pmdBones.size(); ++idx)
 	{
@@ -314,6 +330,8 @@ HRESULT PMDActor::LoadPMDFile(const char* path)
 		auto& node = _boneNodeTable[pb.boneName];
 		node.boneIdx = idx;
 		node.startPos = pb.pos;
+		_boneNameArray[idx] = pb.boneName;
+		boneNodeAddressArray[idx] = &node;
 	}
 
 	// 親子関係を構築する
@@ -434,9 +452,6 @@ HRESULT PMDActor::CreateMaterialBuffer()
 	materialBuff->Unmap(0, nullptr);
 
 	return S_OK;
-
-
-	
 }
 
 HRESULT PMDActor::CreateTransformView()
@@ -670,6 +685,45 @@ void PMDActor::MotionUpdate()
 	copy(_boneMatrices.begin(), _boneMatrices.end(), _mappedMatrices + 1);
 }
 
+void PMDActor::SolveCCDIK(const PMDIK& ik)
+{
+
+}
+
+void PMDActor::SolveCosineIK(const PMDIK& ik)
+{
+
+}
+
+void PMDActor::SolveLookAt(const PMDIK& ik)
+{
+
+}
+
+void PMDActor::IKSolve()
+{
+	for (auto& ik : pmdIkData)
+	{
+		auto childrenNodesCount = ik.nodeIdx.size();
+
+		switch (childrenNodesCount)
+		{
+		case 0: // 間のボーン数が 0 (ありえない)
+			assert(0);
+			continue;
+		case 1: // 間のボーン数が 1 の時は LookAt
+			SolveLookAt(ik);
+			break;
+		case 2: // 間のボーン数が 2 の時は 余弦定理 IK
+			SolveCosineIK(ik);
+			break;
+		default: // 間のボーン数が 3 以上の時は CCD-IK
+			SolveCCDIK(ik);
+			break;
+		}
+	}
+}
+
 PMDActor::PMDActor(std::shared_ptr<PMDRenderer> renderer, const char* path):
 	_renderer(renderer),
 	_dx12(renderer->_dx12),
@@ -776,8 +830,8 @@ void PMDActor::LoadVMDFile(const char* filepath, const char* name)
 	{
 		XMVECTOR vector_quaternion = XMLoadFloat4(&vmdMotion.quaternion);
 		_motiondata[vmdMotion.boneName].emplace_back(KeyFrame(vmdMotion.frameNo, vector_quaternion, 
-													XMFLOAT2((float)vmdMotion.bezier[3] / 127.0f, (float)vmdMotion.bezier[7] / 127.0f),
-													XMFLOAT2((float)vmdMotion.bezier[11] / 127.0f, (float)vmdMotion.bezier[15] / 127.0f)));
+													 XMFLOAT2((float)vmdMotion.bezier[3] / 127.0f, (float)vmdMotion.bezier[7] / 127.0f),
+													 XMFLOAT2((float)vmdMotion.bezier[11] / 127.0f, (float)vmdMotion.bezier[15] / 127.0f)));
 	}
 
 	for (auto& motion : _motiondata)
@@ -884,3 +938,4 @@ void PMDActor::IkDebug(std::vector<PMDIK> pmd_Ik_Data)
 		OutputDebugStringA(oss.str().c_str());
 	}
 }
+
