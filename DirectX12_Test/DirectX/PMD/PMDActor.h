@@ -9,13 +9,14 @@
 #include <unordered_map>
 #include <map>
 
-
 class Dx12Wrapper;
 class PMDRenderer;
+
 class PMDActor
 {
 	friend PMDRenderer;
 private:
+	
 	std::shared_ptr<PMDRenderer> _renderer;
 	std::shared_ptr<Dx12Wrapper> _dx12;
 
@@ -104,6 +105,7 @@ private:
 
 	// 定数宣言
 	const size_t pmdvertexsize = 38; // 頂点１つ当たりのサイズ
+	const float epsilon = 0.0005f;   // 誤差の範囲内かどうかに使用する定数
 
 	// 変数宣言
 	D3D12_VERTEX_BUFFER_VIEW vbView;
@@ -130,7 +132,7 @@ private:
 	std::map<std::string, BoneNode> _boneNodeTable;
 	DirectX::XMMATRIX* _mappedMatrices = nullptr;
 	std::unordered_map <std::string, std::vector<KeyFrame>> _motiondata;
-	std::vector<string> _boneNameArray;
+	std::vector<std::string> _boneNameArray;
 	std::vector<BoneNode*> boneNodeAddressArray;
 
 	Transform _transform;
@@ -178,6 +180,9 @@ private:
 	void SolveLookAt(const PMDIK& ik);
 
 	void IKSolve();
+
+	std::vector<uint32_t> _kneeIdxes;
+
 public:
 	PMDActor(std::shared_ptr<PMDRenderer> renderer, const char* path);
 	~PMDActor();

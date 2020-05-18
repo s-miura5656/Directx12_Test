@@ -45,8 +45,12 @@ private:
 	Application(const Application&) = delete;
 	void operator=(const Application&) = delete;
 public:
+
 	//Applicationのシングルトンインスタンスを得る
-	static Application& Instance();
+	static Application& Instance() {
+		static Application instance;
+		return instance;
+	};
 
 	///初期化
 	bool Init();
