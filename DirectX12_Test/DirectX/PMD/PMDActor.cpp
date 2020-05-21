@@ -725,10 +725,6 @@ void PMDActor::MotionUpdate()
 			rotation = DirectX::XMMatrixRotationQuaternion(DirectX::XMQuaternionSlerp(rit->quaternion, it->quaternion, t));
 
 			offset = XMVectorLerp(offset, XMLoadFloat3(&it->offset), t);
-//			rotation = XMMatrixRotationQuaternion(rit->quaternion)
-//					 * (1 - t)
-//					 + XMMatrixRotationQuaternion(it->quaternion)
-//					 * t;
 		}
 		else 
 		{

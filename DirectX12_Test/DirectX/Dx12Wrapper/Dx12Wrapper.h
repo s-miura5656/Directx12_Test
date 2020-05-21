@@ -18,6 +18,8 @@ private:
 	template<typename T>
 	using ComPtr = Microsoft::WRL::ComPtr<T>;
 
+	const float clearColor[4] = { 1.0f,1.0f,1.0f,1.0f }; // 白色
+
 	SIZE windowSize;
 
 	ComPtr<IDXGIFactory6> _dxgiFactory = nullptr;
@@ -33,6 +35,7 @@ private:
 
 	//シーンを構成するバッファまわり
 	ComPtr<ID3D12Resource> _sceneConstBuff = nullptr;
+	ComPtr<ID3D12Resource> _peraResource = nullptr;
 
 	struct SceneData {
 		DirectX::XMMATRIX view;//ビュー行列
@@ -64,6 +67,8 @@ private:
 	HRESULT CreateSceneView();
 	// レンダーターゲットビュー生成
 	HRESULT CreateFinalRTV();
+	// ペラ用レンダーターゲットビュー作成
+	HRESULT CreatePeraRTV();
 	// テクスチャローダテーブルの作成
 	void CreateTextureLoaderTable();
 	// デプスバッファ作成

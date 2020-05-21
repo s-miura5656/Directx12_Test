@@ -153,7 +153,6 @@ void Dx12Wrapper::BeginDraw()
 	_cmdList->ClearDepthStencilView(dsvH, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 
 	// 画面クリア
-	float clearColor[] = { 1.0f,1.0f,1.0f,1.0f }; // 白色
 	_cmdList->ClearRenderTargetView(rtvH, clearColor, 0, nullptr);
 
 	// ビューポート、シザー矩形のセット
@@ -434,6 +433,28 @@ HRESULT Dx12Wrapper::CreateFinalRTV()
 
 	_viewport.reset(new CD3DX12_VIEWPORT(_backBuffers[0]));
 	_scissorrect.reset(new CD3DX12_RECT(0, 0, desc.Width, desc.Height));
+
+	return result;
+}
+
+HRESULT Dx12Wrapper::CreatePeraRTV()
+{
+	auto heapDesc = rtvHeaps->GetDesc();
+
+	auto& bbuff = _backBuffers[0];
+	auto resDesc = bbuff->GetDesc();
+
+	D3D12_HEAP_PROPERTIES heapProp = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
+
+	D3D12_CLEAR_VALUE clearValue = CD3DX12_CLEAR_VALUE(DXGI_FORMAT_R8G8B8A8_UNORM, clearColor);
+
+	auto result = _dev->CreateCommittedResource(
+		&heapProp,
+		D3D12_HEAP_FLAG_NONE,
+		&resDesc,
+		D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+		&clearValue,
+		IID_PPV_ARGS(_peraResource.ReleaseAndGetAddressOf()));
 
 	return result;
 }
