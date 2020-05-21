@@ -16,7 +16,7 @@ class PMDActor
 {
 	friend PMDRenderer;
 private:
-	
+
 	std::shared_ptr<PMDRenderer> _renderer;
 	std::shared_ptr<Dx12Wrapper> _dx12;
 
@@ -53,43 +53,35 @@ private:
 		DirectX::XMMATRIX world;
 	};
 
-	struct VMDMotionData
-	{
-		char boneName[15];            // ボーン名
-		unsigned int frameNo;         // フレーム番号(読込時は現在のフレーム位置を0とした相対位置)
-		DirectX::XMFLOAT3 location;	  // 位置
-		DirectX::XMFLOAT4 quaternion; // Quaternion // 回転
-		unsigned char bezier[64];     // [4][4][4]  ベジェ補完パラメータ
-	};
-
 	struct KeyFrame
 	{
 		unsigned int frameNo;
 		DirectX::XMVECTOR quaternion;
 		DirectX::XMFLOAT3 offset;
 		DirectX::XMFLOAT2 p1, p2;
-		KeyFrame(unsigned int fno, DirectX::XMVECTOR& q, DirectX::XMFLOAT3 ofst, const DirectX::XMFLOAT2& ip1, const DirectX::XMFLOAT2& ip2)
+		KeyFrame(unsigned int fno, DirectX::XMVECTOR& q, DirectX::XMFLOAT3& ofst, const DirectX::XMFLOAT2& ip1, const DirectX::XMFLOAT2& ip2)
 			: frameNo(fno), quaternion(q), offset(ofst), p1(ip1), p2(ip2) {}
 	};
 
 
-//	struct BoneNode
-//	{
-//		int boneIdx;					 // ボーンインデックス
-//		DirectX::XMFLOAT3 startPos;	     // ボーン基準点 ( 回転の中心 )
-//		DirectX::XMFLOAT3 endPos;	     // ボーン先端点 ( 実際のスキニングには利用しない )
-//		std::vector<BoneNode*> children; // 子ノード
-//	};
+	//	struct BoneNode
+	//	{
+	//		int boneIdx;					 // ボーンインデックス
+	//		DirectX::XMFLOAT3 startPos;	     // ボーン基準点 ( 回転の中心 )
+	//		DirectX::XMFLOAT3 endPos;	     // ボーン先端点 ( 実際のスキニングには利用しない )
+	//		std::vector<BoneNode*> children; // 子ノード
+	//	};
 
 	struct BoneNode {
 		uint32_t boneIdx;                // ボーンインデックス
-		uint32_t boneType;               // ボーン種別
+		uint32_t boneType;				 // ボーン種別
+		uint32_t parentBone;
 		uint32_t ikParentBone;           // IK親ボーン
 		DirectX::XMFLOAT3 startPos;      // ボーン基準点(回転中心)
 		std::vector<BoneNode*> children; // 子ノード
 	};
 
-	struct PMDIK 
+	struct PMDIK
 	{
 		uint16_t boneIdx;
 		uint16_t targetIdx;
@@ -98,7 +90,14 @@ private:
 		std::vector<uint16_t> nodeIdx;
 	};
 
+	struct VMDIKEnable
+	{
+		uint32_t frameNo;
+		std::unordered_map<std::string, bool> ikEnableTable;
+	};
+
 	std::vector<PMDIK> pmdIkData;
+	std::vector<VMDIKEnable> ikEnableData;
 
 	template<typename T>
 	using ComPtr = Microsoft::WRL::ComPtr<T>;
@@ -144,7 +143,7 @@ private:
 	float angle;
 	DWORD startTime;
 	DWORD elapsedTime;
-	unsigned int duration;
+	unsigned int duration = 0;
 
 	// PMD ファイルのロード
 	HRESULT LoadPMDFile(const char* path);
@@ -179,7 +178,7 @@ private:
 	// @param ik 対象 IK オブジェクト
 	void SolveLookAt(const PMDIK& ik);
 
-	void IKSolve();
+	void IKSolve(int frameNo);
 
 	std::vector<uint32_t> _kneeIdxes;
 
