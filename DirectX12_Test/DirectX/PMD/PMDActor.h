@@ -6,15 +6,17 @@
 #include <wrl.h>
 #include <string>
 #include <memory>
+#include <unordered_map>
 #include <map>
-
 
 class Dx12Wrapper;
 class PMDRenderer;
+
 class PMDActor
 {
 	friend PMDRenderer;
 private:
+
 	std::shared_ptr<PMDRenderer> _renderer;
 	std::shared_ptr<Dx12Wrapper> _dx12;
 
@@ -51,36 +53,58 @@ private:
 		DirectX::XMMATRIX world;
 	};
 
-	struct BoneNode
-	{
-		int boneIdx;					 // ボーンインデックス
-		DirectX::XMFLOAT3 startPos;				 // ボーン基準点 ( 回転の中心 )
-		DirectX::XMFLOAT3 endPos;				 // ボーン先端点 ( 実際のスキニングには利用しない )
-		std::vector<BoneNode*> children; // 子ノード
-	};
-
-	struct VMDMotionData
-	{
-		char boneName[15];            // ボーン名
-		unsigned int frameNo;         // フレーム番号(読込時は現在のフレーム位置を0とした相対位置)
-		DirectX::XMFLOAT3 location;	  // 位置
-		DirectX::XMFLOAT4 quaternion; // Quaternion // 回転
-		unsigned char bezier[64];     // [4][4][4]  ベジェ補完パラメータ
-	};
-
 	struct KeyFrame
 	{
 		unsigned int frameNo;
 		DirectX::XMVECTOR quaternion;
-		KeyFrame(unsigned int fno, DirectX::XMVECTOR& q)
-			: frameNo(fno), quaternion(q) {}
+		DirectX::XMFLOAT3 offset;
+		DirectX::XMFLOAT2 p1, p2;
+		KeyFrame(unsigned int fno, DirectX::XMVECTOR& q, DirectX::XMFLOAT3& ofst, const DirectX::XMFLOAT2& ip1, const DirectX::XMFLOAT2& ip2)
+			: frameNo(fno), quaternion(q), offset(ofst), p1(ip1), p2(ip2) {}
 	};
+
+
+	//	struct BoneNode
+	//	{
+	//		int boneIdx;					 // ボーンインデックス
+	//		DirectX::XMFLOAT3 startPos;	     // ボーン基準点 ( 回転の中心 )
+	//		DirectX::XMFLOAT3 endPos;	     // ボーン先端点 ( 実際のスキニングには利用しない )
+	//		std::vector<BoneNode*> children; // 子ノード
+	//	};
+
+	struct BoneNode {
+		uint32_t boneIdx;                // ボーンインデックス
+		uint32_t boneType;				 // ボーン種別
+		uint32_t parentBone;
+		uint32_t ikParentBone;           // IK親ボーン
+		DirectX::XMFLOAT3 startPos;      // ボーン基準点(回転中心)
+		std::vector<BoneNode*> children; // 子ノード
+	};
+
+	struct PMDIK
+	{
+		uint16_t boneIdx;
+		uint16_t targetIdx;
+		uint16_t iterations;
+		float limit;
+		std::vector<uint16_t> nodeIdx;
+	};
+
+	struct VMDIKEnable
+	{
+		uint32_t frameNo;
+		std::unordered_map<std::string, bool> ikEnableTable;
+	};
+
+	std::vector<PMDIK> pmdIkData;
+	std::vector<VMDIKEnable> ikEnableData;
 
 	template<typename T>
 	using ComPtr = Microsoft::WRL::ComPtr<T>;
 
 	// 定数宣言
 	const size_t pmdvertexsize = 38; // 頂点１つ当たりのサイズ
+	const float epsilon = 0.0005f;   // 誤差の範囲内かどうかに使用する定数
 
 	// 変数宣言
 	D3D12_VERTEX_BUFFER_VIEW vbView;
@@ -106,6 +130,9 @@ private:
 	std::vector<DirectX::XMMATRIX> _boneMatrices;
 	std::map<std::string, BoneNode> _boneNodeTable;
 	DirectX::XMMATRIX* _mappedMatrices = nullptr;
+	std::unordered_map <std::string, std::vector<KeyFrame>> _motiondata;
+	std::vector<std::string> _boneNameArray;
+	std::vector<BoneNode*> boneNodeAddressArray;
 
 	Transform _transform;
 	Transform* _mappedTransform = nullptr;
@@ -114,6 +141,9 @@ private:
 	ComPtr<ID3D12DescriptorHeap> _transformHeap = nullptr;//座標変換ヒープ
 
 	float angle;
+	DWORD startTime;
+	DWORD elapsedTime;
+	unsigned int duration = 0;
 
 	// PMD ファイルのロード
 	HRESULT LoadPMDFile(const char* path);
@@ -129,6 +159,28 @@ private:
 	HRESULT CreateMaterialAndTextureView();
 	// 再帰関数
 	void RecursiveMatrixMultipy(BoneNode* node, DirectX::XMMATRIX& mat);
+	// モーション再生
+	void MotionUpdate();
+
+	float GetYFromXOnBezier(float x, const DirectX::XMFLOAT2& a, const DirectX::XMFLOAT2& b, uint8_t n);
+	
+	void IkDebug(std::vector<PMDIK> pmd_Ik_Data);
+
+	// CCDIK によりボーン方向を解決
+	// @param ik 対象 IK オブジェクト
+	void SolveCCDIK(const PMDIK& ik);
+
+	// 余弦定理 IK によりボーン方向を解決
+	// @param ik 対象 IK オブジェクト
+	void SolveCosineIK(const PMDIK& ik);
+
+	// LookAt 行列によりボーン方向を解決
+	// @param ik 対象 IK オブジェクト
+	void SolveLookAt(const PMDIK& ik);
+
+	void IKSolve(int frameNo);
+
+	std::vector<uint32_t> _kneeIdxes;
 
 public:
 	PMDActor(std::shared_ptr<PMDRenderer> renderer, const char* path);
@@ -138,5 +190,6 @@ public:
 	void Draw();
 
 	void LoadVMDFile(const char* filepath, const char* name);
+	void PlayAnimation();
 };
 
